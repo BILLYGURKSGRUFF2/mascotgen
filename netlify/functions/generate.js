@@ -16,6 +16,13 @@ exports.handler = async (event) => {
 
     if (!apiKey) return { statusCode: 400, headers, body: JSON.stringify({ error: "No API key" }) };
 
+    // Force image output in the payload
+    payload.generationConfig = {
+      ...payload.generationConfig,
+      responseModalities: ["IMAGE", "TEXT"],
+      responseMimeType: "image/png",
+    };
+
     const postData = JSON.stringify(payload);
 
     const result = await new Promise((resolve, reject) => {
@@ -40,25 +47,6 @@ exports.handler = async (event) => {
       req.write(postData);
       req.end();
     });
-
-    // Parse and check what Google actually returned
-    const data = JSON.parse(result.body);
-    const parts = data?.candidates?.[0]?.content?.parts || [];
-    const imgPart = parts.find(p => p.inline_data?.mime_type?.startsWith("image/"));
-
-    if (!imgPart) {
-      // Return debug info so we can see what came back
-      const textPart = parts.find(p => p.text);
-      const finishReason = data?.candidates?.[0]?.finishReason;
-      const errorMsg = data?.error?.message;
-      return {
-        statusCode: 200,
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          error: `No image in response. finishReason: ${finishReason}, text: ${textPart?.text?.slice(0,200)}, apiError: ${errorMsg}, partsCount: ${parts.length}`
-        }),
-      };
-    }
 
     return {
       statusCode: result.status,
