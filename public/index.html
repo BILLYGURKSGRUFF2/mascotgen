@@ -622,10 +622,7 @@
 
     const res = await fetch("/api/generate", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-app-secret": "qwertyuiop",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: { responseModalities: ["TEXT", "IMAGE"] },

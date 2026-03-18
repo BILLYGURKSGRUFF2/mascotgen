@@ -1,33 +1,33 @@
-# Mascot Studio — Setup
+# Mascot Studio — Netlify Deploy
 
-## Netlify Environment Variables (Site Settings → Environment Variables)
+## Setup (5 min)
 
-Add these two:
+### 1. Deploy to Netlify
+Drag the entire `mascot-studio` folder into [app.netlify.com/drop](https://app.netlify.com/drop)
 
-| Key | Value |
-|-----|-------|
-| `GEMINI_API_KEY` | Your Google AI Studio API key |
-| `APP_SECRET` | Any random string you make up (e.g. `mj3k9xQp2wL8`) |
+### 2. Set your API key
+1. Go to your Netlify site → **Site configuration → Environment variables**
+2. Add: `GEMINI_API_KEY` = your Google AI Studio key
+3. Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (free)
 
-## Frontend
+### 3. Redeploy
+After adding the env var, trigger a redeploy:
+**Deploys → Trigger deploy → Deploy site**
 
-Open `public/index.html` and find this line:
+That's it — open your Netlify URL on any device.
 
+## Project structure
 ```
-"x-app-secret": "REPLACE_WITH_YOUR_APP_SECRET",
+mascot-studio/
+├── index.html                  ← The entire frontend
+├── netlify.toml                ← Routing config
+└── netlify/
+    └── functions/
+        └── generate.js         ← Proxy to Nano Banana 2
 ```
 
-Replace it with whatever you set APP_SECRET to. Example:
-
-```
-"x-app-secret": "mj3k9xQp2wL8",
-```
-
-## Deploy
-
-1. Drag the `mascot-studio` folder into Netlify
-2. Set the two env vars above
-3. Update the secret in index.html
-4. Redeploy
-
-Done. Only requests with the correct secret header will be accepted.
+## How it works
+- Frontend calls `/api/generate`
+- `netlify.toml` rewrites that to `/.netlify/functions/generate`
+- The function forwards the request to Google's Gemini API with your key
+- Your API key never touches the browser

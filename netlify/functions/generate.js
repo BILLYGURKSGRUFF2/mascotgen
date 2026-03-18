@@ -13,11 +13,6 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
-  const secret = event.headers["x-app-secret"];
-  if (!secret || secret !== process.env.APP_SECRET) {
-    return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
-  }
-
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: "GEMINI_API_KEY not configured in Netlify env vars" }) };
