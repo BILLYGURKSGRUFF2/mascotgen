@@ -15,7 +15,6 @@ exports.handler = async (event) => {
     const { apiKey, payload } = body;
 
     if (!apiKey) return { statusCode: 400, headers, body: JSON.stringify({ error: "No API key" }) };
-    if (!payload) return { statusCode: 400, headers, body: JSON.stringify({ error: "No payload" }) };
 
     const postData = JSON.stringify(payload);
 
@@ -37,10 +36,29 @@ exports.handler = async (event) => {
       });
 
       req.on("error", (e) => reject(e));
-      req.setTimeout(25000, () => { req.destroy(); reject(new Error("Request timed out after 25s")); });
+      req.setTimeout(25000, () => { req.destroy(); reject(new Error("Timed out")); });
       req.write(postData);
       req.end();
     });
+
+    // Parse and check what Google actually returned
+    const data = JSON.parse(result.body);
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const imgPart = parts.find(p => p.inline_data?.mime_type?.startsWith("image/"));
+
+    if (!imgPart) {
+      // Return debug info so we can see what came back
+      const textPart = parts.find(p => p.text);
+      const finishReason = data?.candidates?.[0]?.finishReason;
+      const errorMsg = data?.error?.message;
+      return {
+        statusCode: 200,
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: `No image in response. finishReason: ${finishReason}, text: ${textPart?.text?.slice(0,200)}, apiError: ${errorMsg}, partsCount: ${parts.length}`
+        }),
+      };
+    }
 
     return {
       statusCode: result.status,
