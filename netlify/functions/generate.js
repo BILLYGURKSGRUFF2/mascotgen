@@ -14,12 +14,12 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body);
     const { apiKey, payload } = body;
 
-    if (!apiKey) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "No API key provided" }) };
-    }
+    if (!apiKey) return { statusCode: 400, headers, body: JSON.stringify({ error: "No API key" }) };
+    if (!payload) return { statusCode: 400, headers, body: JSON.stringify({ error: "No payload" }) };
+
+    const postData = JSON.stringify(payload);
 
     const result = await new Promise((resolve, reject) => {
-      const postData = JSON.stringify(payload);
       const options = {
         hostname: "generativelanguage.googleapis.com",
         path: `/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`,
@@ -36,7 +36,8 @@ exports.handler = async (event) => {
         res.on("end", () => resolve({ status: res.statusCode, body: data }));
       });
 
-      req.on("error", reject);
+      req.on("error", (e) => reject(e));
+      req.setTimeout(25000, () => { req.destroy(); reject(new Error("Request timed out after 25s")); });
       req.write(postData);
       req.end();
     });
