@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mascot Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0b0d;
+      --panel: #101013;
+      --surface: #161619;
+      --border: #1e1e24;
+      --border2: #28282f;
+      --accent: #6EE7B7;
+      --accent-dim: rgba(110,231,183,0.07);
+      --accent-glow: rgba(110,231,183,0.2);
+      --text: #ededf0;
+      --muted: #525260;
+      --faint: #232328;
+      --danger: #ff6b6b;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      height: 54px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+    .topbar-title { font-size: 14px; font-weight: 700; }
+    .topbar-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 2px 7px;
+      letter-spacing: .08em;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 300px;
+      flex-shrink: 0;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border-radius: 9px;
+      padding: 3px;
+    }
+    .tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-radius: 7px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px;
+      transition: all .15s;
+    }
+    .tab.active {
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(0,0,0,.5);
+    }
+
+    .flabel {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    textarea, input[type=text] {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      padding: 10px 11px;
+      resize: none;
+      outline: none;
+      transition: border-color .15s;
+    }
+    textarea:focus, input[type=text]:focus { border-color: var(--accent); }
+    textarea::placeholder, input::placeholder { color: var(--faint); }
+
+    /* ── Pills ── */
+    .pills { display: flex; flex-wrap: wrap; gap: 5px; }
+    .pill {
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 100px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 4px 12px;
+      transition: all .12s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .pill:hover { border-color: var(--border); color: var(--text); }
+    .pill.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+
+    /* ── Upload ── */
+    .upload-zone {
+      border: 1.5px dashed var(--border2);
+      border-radius: 11px;
+      height: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all .18s;
+      overflow: hidden;
+      position: relative;
+      background: var(--surface);
+    }
+    .upload-zone:hover, .upload-zone.drag {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .upload-zone.filled { cursor: default; border-style: solid; border-color: var(--border2); }
+    .upload-empty {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 7px;
+      color: var(--muted);
+      font-size: 12px; font-weight: 500;
+      pointer-events: none;
+    }
+    .upload-hint { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--faint); }
+    .upload-preview { width: 100%; height: 100%; position: relative; }
+    .upload-preview img { width: 100%; height: 100%; object-fit: contain; padding: 10px; }
+    .upload-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      opacity: 0; transition: opacity .15s;
+    }
+    .upload-preview:hover .upload-overlay { opacity: 1; }
+    .up-btn {
+      background: var(--accent); border: none; border-radius: 6px;
+      color: #000; font-weight: 600; font-size: 11px;
+      padding: 6px 13px; cursor: pointer;
+    }
+    .up-btn.danger { background: var(--danger); color: #fff; }
+
+    .var-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted);
+      margin-top: 5px;
+    }
+    .var-count span { color: var(--accent); }
+
+    /* ── Error ── */
+    .err-box {
+      background: rgba(255,107,107,.07);
+      border: 1px solid rgba(255,107,107,.2);
+      border-radius: 8px;
+      color: var(--danger);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      padding: 9px 11px;
+      line-height: 1.5;
+      display: none;
+    }
+    .err-box.show { display: block; }
+
+    /* ── Buttons ── */
+    .gen-btn {
+      width: 100%;
+      background: var(--accent);
+      border: none; border-radius: 10px;
+      color: #000; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 700;
+      padding: 13px;
+      transition: opacity .15s, transform .1s;
+    }
+    .gen-btn:hover:not(:disabled) { opacity: .85; transform: translateY(-1px); }
+    .gen-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .gen-btn.stop { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+    .gen-btn.secondary {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--muted); font-size: 12px; padding: 9px;
+    }
+    .gen-btn.secondary:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Canvas ── */
+    .canvas { flex: 1; padding: 22px; overflow-y: auto; }
+
+    .canvas-head {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .prog-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+    .prog-label span { color: var(--accent); }
+    .dl-all {
+      background: transparent; border: 1px solid var(--border2);
+      border-radius: 7px; color: var(--muted);
+      cursor: pointer; font-family: 'DM Mono', monospace;
+      font-size: 10px; padding: 5px 11px; transition: all .15s;
+    }
+    .dl-all:hover { color: var(--accent); border-color: var(--accent); }
+
+    .prog-wrap {
+      height: 2px; background: var(--border);
+      border-radius: 2px; margin-bottom: 18px; overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%; background: var(--accent);
+      border-radius: 2px; transition: width .35s ease;
+      box-shadow: 0 0 6px var(--accent-glow);
+      width: 0%;
+    }
+
+    /* ── Single result ── */
+    .single-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 16px; padding: 32px 0;
+    }
+    .single-card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden; width: 260px;
+    }
+    .single-img {
+      height: 240px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .single-img img { width: 200px; height: 200px; object-fit: contain; }
+    .single-foot {
+      padding: 12px 14px; border-top: 1px solid var(--border);
+      display: flex; gap: 8px;
+    }
+    .single-foot button {
+      flex: 1; background: transparent;
+      border: 1px solid var(--border2); border-radius: 7px;
+      color: var(--muted); cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 500; padding: 8px;
+      transition: all .15s;
+    }
+    .single-foot button:hover { color: var(--accent); border-color: var(--accent); }
+    .single-foot button.primary {
+      background: var(--accent); border-color: var(--accent);
+      color: #000; font-weight: 700;
+    }
+    .single-foot button.primary:hover { opacity: .85; }
+
+    .hint-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px; color: var(--muted);
+      text-align: center; line-height: 1.7;
+    }
+    .hint-text strong { color: var(--accent); }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 11px;
+    }
+
+    /* ── Card ── */
+    .checker {
+      background-image:
+        linear-gradient(45deg,#1c1c20 25%,transparent 25%),
+        linear-gradient(-45deg,#1c1c20 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#1c1c20 75%),
+        linear-gradient(-45deg,transparent 75%,#1c1c20 75%);
+      background-size: 12px 12px;
+      background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+      background-color: #141416;
+    }
+    .rcard {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      transition: border-color .18s, transform .18s;
+    }
+    .rcard:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .rcard-img {
+      height: 144px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .rcard-img img { width: 116px; height: 116px; object-fit: contain; }
+    .rcard-state {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 7px;
+    }
+    .rcard-state span {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .rcard-state .fail { color: var(--danger); font-size: 18px; }
+    .spin {
+      width: 24px; height: 24px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .rcard-foot {
+      padding: 8px 10px; border-top: 1px solid var(--border);
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 5px; min-height: 36px;
+    }
+    .rcard-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 68px;
+    }
+    .rcard-btns { display: flex; gap: 4px; flex-shrink: 0; }
+    .cbtn {
+      background: transparent; border: 1px solid var(--border2);
+      border-radius: 5px; color: var(--muted); cursor: pointer;
+      font-family: 'DM Mono', monospace; font-size: 9px;
+      padding: 3px 7px; transition: all .12s;
+    }
+    .cbtn:hover { color: var(--text); border-color: #444; }
+    .cbtn.hi:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Empty ── */
+    .empty {
+      height: 100%; min-height: 320px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+    }
+    .empty-icon { font-size: 40px; opacity: .15; }
+    .empty-text { font-size: 13px; font-weight: 500; opacity: .3; }
+    .empty-sub {
+      font-family: 'DM Mono', monospace; font-size: 10px;
+      opacity: .2; text-align: center; line-height: 1.7; max-width: 240px;
+    }
+
+    /* hide/show panels */
+    .panel { display: none; flex-direction: column; gap: 16px; }
+    .panel.active { display: flex; }
+    .result-panel { display: none; }
+    .result-panel.active { display: block; }
+
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      .layout { flex-direction: column; overflow: visible; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+      .canvas { padding: 16px; }
+      .single-card { width: 100%; max-width: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="dot"></div>
+  <span class="topbar-title">Mascot Studio</span>
+  <span class="topbar-tag">NANO BANANA 2</span>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchMode('generate')">✦ Generate</button>
+      <button class="tab" onclick="switchMode('variations')">◈ Variations</button>
+    </div>
+
+    <!-- Generate panel -->
+    <div class="panel active" id="panel-generate">
+      <div>
+        <div class="flabel">App / Character Description</div>
+        <textarea id="app-desc" rows="4"
+          placeholder="e.g. Grounded — a screen time habit app with a small plant named Sprout that grows as you build healthy habits"></textarea>
+      </div>
+      <div>
+        <div class="flabel">Art Style</div>
+        <div class="pills" id="style-pills"></div>
+      </div>
+      <div>
+        <div class="flabel">Personality / Mood</div>
+        <div class="pills" id="mood-pills"></div>
+      </div>
+      <div class="err-box" id="gen-err"></div>
+      <button class="gen-btn" id="gen-btn" onclick="handleGenerate()">Generate Mascot →</button>
+    </div>
+
+    <!-- Variations panel -->
+    <div class="panel" id="panel-variations">
+      <div>
+        <div class="flabel">Reference Mascot</div>
+        <div class="upload-zone" id="upload-zone"
+          onclick="triggerUpload()"
+          ondragover="onDragOver(event)"
+          ondragleave="onDragLeave(event)"
+          ondrop="onDrop(event)">
+          <input type="file" id="file-input" accept="image/*" style="display:none" onchange="onFileChange(event)" />
+          <div class="upload-empty" id="upload-empty">
+            <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
+              <path d="M12 4v12m0-12L8 8m4-4l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span>Drop reference image</span>
+            <span class="upload-hint">PNG · JPG · WebP</span>
+          </div>
+          <div class="upload-preview" id="upload-preview" style="display:none">
+            <img id="preview-img" src="" alt="ref" />
+            <div class="upload-overlay">
+              <button class="up-btn" onclick="event.stopPropagation(); triggerUpload()">Change</button>
+              <button class="up-btn danger" onclick="event.stopPropagation(); clearUpload()">Remove</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="flabel">Variation List — one per line</div>
+        <textarea id="var-text" rows="8"
+          placeholder="Golden/metallic version&#10;Hands covering eyes&#10;Sleeping with Z's&#10;Angry with steam&#10;Victory dance&#10;Wearing sunglasses"></textarea>
+        <div class="var-count"><span id="var-count-num">0</span> variations queued</div>
+      </div>
+      <div class="err-box" id="var-err"></div>
+      <button class="gen-btn" id="var-btn" onclick="handleVariations()">Generate Variations →</button>
+    </div>
+
+  </aside>
+
+  <!-- Canvas -->
+  <main class="canvas">
+
+    <!-- Generate result -->
+    <div class="result-panel active" id="result-generate">
+      <div class="empty" id="gen-empty">
+        <div class="empty-icon">✦</div>
+        <div class="empty-text">No mascot yet</div>
+        <div class="empty-sub">Describe your app, pick a style and mood, then generate</div>
+      </div>
+      <div class="single-wrap" id="gen-result" style="display:none">
+        <div class="single-card">
+          <div class="single-img checker" id="gen-img-wrap">
+            <div class="rcard-state" id="gen-loading" style="display:none">
+              <div class="spin"></div>
+              <span>generating</span>
+            </div>
+            <img id="gen-img" src="" alt="mascot" style="display:none" />
+            <span id="gen-fail" style="display:none;color:var(--danger);font-family:DM Mono;font-size:11px;padding:16px;text-align:center"></span>
+          </div>
+          <div class="single-foot" id="gen-foot" style="display:none">
+            <button onclick="downloadGen()">↓ PNG</button>
+            <button onclick="handleGenerate()">↻ Redo</button>
+            <button class="primary" onclick="useAsReference()">Use for Variations →</button>
+          </div>
+        </div>
+        <p class="hint-text" id="gen-hint" style="display:none">
+          Happy with it? Hit <strong>Use for Variations →</strong><br/>to generate poses & versions.
+        </p>
+      </div>
+    </div>
+
+    <!-- Variations result -->
+    <div class="result-panel" id="result-variations">
+      <div class="empty" id="var-empty">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">No variations yet</div>
+        <div class="empty-sub">Upload your mascot, list your variations, and hit generate</div>
+      </div>
+      <div id="var-result" style="display:none">
+        <div class="canvas-head">
+          <span class="prog-label"><span id="done-count">0</span> / <span id="total-count">0</span> complete</span>
+          <button class="dl-all" id="dl-all-btn" onclick="downloadAll()" style="display:none">↓ Download All PNGs</button>
+        </div>
+        <div class="prog-wrap"><div class="prog-fill" id="prog-fill"></div></div>
+        <div class="grid" id="var-grid"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // ── State ──
+  const STYLES = ["Flat 2D","3D Cartoon","Pixel Art","Chibi","Bold Graphic","Minimalist"];
+  const MOODS  = ["Friendly","Energetic","Playful","Calm","Mysterious","Professional"];
+  let selectedStyle = "Flat 2D";
+  let selectedMood  = "Friendly";
+  let refImageData  = null;
+  let refImageType  = null;
+  let genBase64     = null;
+  let varCards      = [];
+  let running       = false;
+  let currentMode   = "generate";
+
+  // ── Init pills ──
+  function makePills(containerId, options, getter, setter) {
+    const el = document.getElementById(containerId);
+    options.forEach(opt => {
+      const btn = document.createElement("button");
+      btn.className = "pill" + (getter() === opt ? " active" : "");
+      btn.textContent = opt;
+      btn.onclick = () => {
+        setter(opt);
+        el.querySelectorAll(".pill").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      };
+      el.appendChild(btn);
+    });
+  }
+
+  makePills("style-pills", STYLES, () => selectedStyle, v => selectedStyle = v);
+  makePills("mood-pills",  MOODS,  () => selectedMood,  v => selectedMood  = v);
+
+  // ── Var count ──
+  document.getElementById("var-text").addEventListener("input", updateVarCount);
+  function updateVarCount() {
+    const n = parseVariations().length;
+    document.getElementById("var-count-num").textContent = n;
+    document.getElementById("var-btn").textContent = `Generate ${n} Variation${n!==1?"s":""} →`;
+  }
+  updateVarCount();
+
+  // ── Mode switch ──
+  function switchMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll(".tab").forEach((t,i) => {
+      t.classList.toggle("active", (i===0 && mode==="generate") || (i===1 && mode==="variations"));
+    });
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.getElementById(`panel-${mode}`).classList.add("active");
+    document.querySelectorAll(".result-panel").forEach(p => p.classList.remove("active"));
+    document.getElementById(`result-${mode}`).classList.add("active");
+  }
+
+  // ── Upload ──
+  function triggerUpload() {
+    if (!refImageData) document.getElementById("file-input").click();
+  }
+  function onDragOver(e) { e.preventDefault(); document.getElementById("upload-zone").classList.add("drag"); }
+  function onDragLeave() { document.getElementById("upload-zone").classList.remove("drag"); }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById("upload-zone").classList.remove("drag");
+    processFile(e.dataTransfer.files[0]);
+  }
+  function onFileChange(e) { processFile(e.target.files[0]); }
+  function processFile(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      refImageData = e.target.result.split(",")[1];
+      refImageType = file.type;
+      document.getElementById("preview-img").src = e.target.result;
+      document.getElementById("upload-empty").style.display = "none";
+      document.getElementById("upload-preview").style.display = "block";
+      document.getElementById("upload-zone").classList.add("filled");
+    };
+    reader.readAsDataURL(file);
+  }
+  function clearUpload() {
+    refImageData = null; refImageType = null;
+    document.getElementById("upload-empty").style.display = "flex";
+    document.getElementById("upload-preview").style.display = "none";
+    document.getElementById("upload-zone").classList.remove("filled");
+    document.getElementById("file-input").value = "";
+  }
+
+  // ── API call ──
+  async function callProxy({ textPrompt, imageData, imageType }) {
+    const parts = [];
+    if (imageData) parts.push({ inline_data: { mime_type: imageType, data: imageData } });
+    parts.push({ text: textPrompt });
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-app-secret": "qwertyuiop",
+      },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error?.message || data?.error || `HTTP ${res.status}`);
+
+    const resParts = data?.candidates?.[0]?.content?.parts || [];
+    const imgPart = resParts.find(p => p.inline_data?.mime_type?.startsWith("image/"));
+    if (!imgPart) throw new Error("No image returned — try again");
+    return imgPart.inline_data.data;
+  }
+
+  // ── Generate mascot ──
+  function generatePrompt(desc, style, mood) {
+    return `Create a single mascot/character for a mobile app.
+
+App description: "${desc}"
+Art style: ${style}
+Mood/personality: ${mood}
+
+Requirements:
+- Design a unique, memorable character that represents this app
+- TRANSPARENT background — no background, no floor shadow, nothing behind the character
+- Center the character with transparent space around it
+- App-ready: expressive, iconic, simple enough to work at small sizes
+- Output the character only on a fully transparent PNG`;
+  }
+
+  async function handleGenerate() {
+    const desc = document.getElementById("app-desc").value.trim();
+    const errEl = document.getElementById("gen-err");
+    if (!desc) { showErr(errEl, "Describe your app or character first."); return; }
+    hideErr(errEl);
+
+    running = true;
+    setBtn("gen-btn", true, "Generating…");
+    document.getElementById("gen-empty").style.display = "none";
+    document.getElementById("gen-result").style.display = "flex";
+    document.getElementById("gen-loading").style.display = "flex";
+    document.getElementById("gen-img").style.display = "none";
+    document.getElementById("gen-fail").style.display = "none";
+    document.getElementById("gen-foot").style.display = "none";
+    document.getElementById("gen-hint").style.display = "none";
+
+    try {
+      const b64 = await callProxy({ textPrompt: generatePrompt(desc, selectedStyle, selectedMood) });
+      genBase64 = b64;
+      document.getElementById("gen-img").src = `data:image/png;base64,${b64}`;
+      document.getElementById("gen-img").style.display = "block";
+      document.getElementById("gen-foot").style.display = "flex";
+      document.getElementById("gen-hint").style.display = "block";
+    } catch(e) {
+      document.getElementById("gen-fail").textContent = e.message;
+      document.getElementById("gen-fail").style.display = "block";
+      showErr(errEl, e.message);
+    }
+
+    document.getElementById("gen-loading").style.display = "none";
+    setBtn("gen-btn", false, "Generate Mascot →");
+    running = false;
+  }
+
+  function downloadGen() {
+    if (!genBase64) return;
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${genBase64}`;
+    a.download = "mascot.png"; a.click();
+  }
+
+  function useAsReference() {
+    if (!genBase64) return;
+    refImageData = genBase64;
+    refImageType = "image/png";
+    const src = `data:image/png;base64,${genBase64}`;
+    document.getElementById("preview-img").src = src;
+    document.getElementById("upload-empty").style.display = "none";
+    document.getElementById("upload-preview").style.display = "block";
+    document.getElementById("upload-zone").classList.add("filled");
+    switchMode("variations");
+  }
+
+  // ── Variations ──
+  function variationPrompt(desc) {
+    return `Edit this mascot character with the following variation:
+
+"${desc}"
+
+Rules:
+- Keep the EXACT same character identity, art style, proportions, and colors from the reference
+- TRANSPARENT background — no background, no white fill, no shadow
+- Apply the variation naturally, preserve everything else
+- Output centered character on transparent PNG`;
+  }
+
+  function parseVariations() {
+    return document.getElementById("var-text").value
+      .split("\n").map(l => l.trim()).filter(Boolean);
+  }
+
+  async function handleVariations() {
+    const errEl = document.getElementById("var-err");
+    if (!refImageData) { showErr(errEl, "Upload a reference mascot image first."); return; }
+    const variations = parseVariations();
+    if (!variations.length) { showErr(errEl, "Add at least one variation."); return; }
+    hideErr(errEl);
+
+    running = true;
+    setBtn("var-btn", true, "Generating…");
+    varCards = variations.map(label => ({ label, b64: null, loading: true, error: null }));
+
+    document.getElementById("var-empty").style.display = "none";
+    document.getElementById("var-result").style.display = "block";
+    document.getElementById("dl-all-btn").style.display = "none";
+    renderGrid();
+
+    await Promise.allSettled(
+      variations.map(async (label, i) => {
+        try {
+          const b64 = await callProxy({
+            textPrompt: variationPrompt(label),
+            imageData: refImageData,
+            imageType: refImageType,
+          });
+          varCards[i] = { label, b64, loading: false, error: null };
+        } catch(e) {
+          varCards[i] = { label, b64: null, loading: false, error: e.message };
+        }
+        renderGrid();
+        updateProgress();
+      })
+    );
+
+    setBtn("var-btn", false, `Generate ${variations.length} Variation${variations.length!==1?"s":""} →`);
+    running = false;
+  }
+
+  function renderGrid() {
+    const grid = document.getElementById("var-grid");
+    grid.innerHTML = "";
+    const done = varCards.filter(c => c.b64).length;
+    const total = varCards.length;
+
+    document.getElementById("done-count").textContent = done;
+    document.getElementById("total-count").textContent = total;
+    document.getElementById("prog-fill").style.width = total > 0 ? `${(done/total)*100}%` : "0%";
+    if (done > 0) document.getElementById("dl-all-btn").style.display = "inline-block";
+
+    varCards.forEach((card, i) => {
+      const el = document.createElement("div");
+      el.className = "rcard";
+      el.innerHTML = `
+        <div class="rcard-img checker">
+          ${card.loading
+            ? `<div class="rcard-state"><div class="spin"></div><span>generating</span></div>`
+            : card.error
+              ? `<div class="rcard-state"><span class="fail">!</span><span style="color:var(--danger)">${card.error.slice(0,30)}</span></div>`
+              : `<img src="data:image/png;base64,${card.b64}" alt="${card.label}" />`
+          }
+        </div>
+        <div class="rcard-foot">
+          <span class="rcard-label" title="${card.label}">${card.label}</span>
+          <div class="rcard-btns">
+            ${!card.loading ? `<button class="cbtn" onclick="regenCard(${i})" title="Regenerate">↻</button>` : ""}
+            ${card.b64 ? `<button class="cbtn hi" onclick="downloadCard(${i})">↓ PNG</button>` : ""}
+          </div>
+        </div>`;
+      grid.appendChild(el);
+    });
+  }
+
+  async function regenCard(i) {
+    varCards[i] = { ...varCards[i], loading: true, error: null };
+    renderGrid();
+    try {
+      const b64 = await callProxy({
+        textPrompt: variationPrompt(varCards[i].label),
+        imageData: refImageData, imageType: refImageType,
+      });
+      varCards[i] = { ...varCards[i], b64, loading: false };
+    } catch(e) {
+      varCards[i] = { ...varCards[i], b64: null, loading: false, error: e.message };
+    }
+    renderGrid(); updateProgress();
+  }
+
+  function updateProgress() {
+    const done = varCards.filter(c => c.b64).length;
+    document.getElementById("done-count").textContent = done;
+    document.getElementById("prog-fill").style.width = `${(done/varCards.length)*100}%`;
+    if (done > 0) document.getElementById("dl-all-btn").style.display = "inline-block";
+  }
+
+  function downloadCard(i) {
+    const { label, b64 } = varCards[i];
+    if (!b64) return;
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${b64}`;
+    a.download = `${label.toLowerCase().replace(/\W+/g,"-")}.png`;
+    a.click();
+  }
+
+  function downloadAll() {
+    varCards.forEach((c, i) => { if (c.b64) downloadCard(i); });
+  }
+
+  // ── Helpers ──
+  function showErr(el, msg) { el.textContent = msg; el.classList.add("show"); }
+  function hideErr(el) { el.classList.remove("show"); }
+  function setBtn(id, disabled, text) {
+    const btn = document.getElementById(id);
+    btn.disabled = disabled;
+    btn.textContent = text;
+  }
+</script>
+</body>
+</html>
