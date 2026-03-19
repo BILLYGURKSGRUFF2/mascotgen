@@ -144,6 +144,9 @@
     .result-panel { display: none; }
     .result-panel.active { display: block; }
 
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--accent); color: #000; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; padding: 8px 18px; border-radius: 8px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 1000; white-space: nowrap; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
     @media (max-width: 640px) {
       .layout { flex-direction: column; overflow: visible; }
       .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
@@ -177,6 +180,8 @@
     </div>
   </div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <!-- Topbar -->
 <header class="topbar">
@@ -727,11 +732,20 @@
   function sendVarCardToBgRemover(i) { sendToBgRemover(varCards[i].b64, varCards[i].label); }
 
   // ── Remove BG ──
+  function showToast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove("show"), 2000);
+  }
+
   function sendToBgRemover(b64, label, mimeType = "image/png") {
     if (!b64) return;
     bgQueue.push({ b64, label: label || `image-${bgQueue.length+1}`, mimeType });
     updateBgQueueDisplay();
     switchMode("removebg");
+    showToast(`✂ "${label || "image"}" added to queue`);
   }
 
   function updateBgQueueDisplay() {
@@ -807,11 +821,10 @@
     }
 
     setBtn("bg-btn", true, "Processing…");
-    const config = { publicPath: "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/" };
 
     await Promise.allSettled(bgCards.map(async (card, i) => {
       try {
-        const blob = await removeBackground(`data:${card.mimeType};base64,${card.b64}`, config);
+        const blob = await removeBackground(`data:${card.mimeType};base64,${card.b64}`);
         const result = await blobToBase64(blob);
         bgCards[i] = { ...bgCards[i], result, loading: false };
       } catch(e) {
