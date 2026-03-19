@@ -32,8 +32,10 @@
     /* modal */
     .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none; align-items: center; justify-content: center; z-index: 999; padding: 20px; }
     .modal-bg.open { display: flex; }
-    .modal { background: var(--panel); border: 1px solid var(--border2); border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px; }
+    .modal { background: var(--panel); border: 1px solid var(--border2); border-radius: 16px; padding: 24px; width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 20px; }
     .modal h2 { font-size: 16px; font-weight: 700; }
+    .modal-section { display: flex; flex-direction: column; gap: 10px; }
+    .modal-divider { height: 1px; background: var(--border); }
     .modal p { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); line-height: 1.7; }
     .modal p a { color: var(--accent); text-decoration: none; }
     .modal-row { display: flex; gap: 8px; }
@@ -64,6 +66,7 @@
     .pill { background: transparent; border: 1px solid var(--border2); border-radius: 100px; color: var(--muted); cursor: pointer; font-size: 11px; padding: 4px 12px; transition: all .12s; font-family: 'DM Sans', sans-serif; }
     .pill:hover { border-color: var(--border); color: var(--text); }
     .pill.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+    .count-pills .pill { padding: 4px 10px; min-width: 32px; text-align: center; font-family: 'DM Mono', monospace; font-weight: 500; }
 
     /* upload */
     .upload-zone { border: 1.5px dashed var(--border2); border-radius: 11px; height: 150px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .18s; overflow: hidden; position: relative; background: var(--surface); }
@@ -114,6 +117,8 @@
     /* grid */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 11px; }
     .checker { background-image: linear-gradient(45deg,#1c1c20 25%,transparent 25%),linear-gradient(-45deg,#1c1c20 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1c1c20 75%),linear-gradient(-45deg,transparent 75%,#1c1c20 75%); background-size: 12px 12px; background-position: 0 0,0 6px,6px -6px,-6px 0; background-color: #141416; }
+    .checker-white { background: #fff; }
+    .checker-dark { background: #111; }
     .rcard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color .18s, transform .18s; }
     .rcard:hover { border-color: var(--accent); transform: translateY(-2px); }
     .rcard-img { height: 144px; display: flex; align-items: center; justify-content: center; }
@@ -153,20 +158,25 @@
 <div class="modal-bg" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <h2>⚙️ Settings</h2>
-    <p>
-      Paste your Gemini API key below. Get one free at<br/>
-      <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a><br/><br/>
-      Your key is saved in your browser only.
-    </p>
-    <div>
+
+    <div class="modal-section">
       <div class="flabel">Gemini API Key</div>
+      <p>Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> — stored in your browser only.</p>
       <div class="modal-row">
         <input type="password" class="modal-input" id="key-input" placeholder="AIzaSy..." />
         <button class="modal-save" onclick="saveKey()">Save</button>
       </div>
     </div>
+
+    <div class="modal-divider"></div>
+
+    <div class="modal-section">
+      <div class="flabel">Model</div>
+      <div class="pills" id="model-pills"></div>
+    </div>
+
     <div class="modal-foot">
-      <span class="modal-confirm" id="modal-confirm">✓ Key saved!</span>
+      <span class="modal-confirm" id="modal-confirm">✓ Saved!</span>
       <button class="modal-ok" onclick="closeModal()">Close</button>
     </div>
   </div>
@@ -202,6 +212,14 @@
       <div>
         <div class="flabel">Personality / Mood</div>
         <div class="pills" id="mood-pills"></div>
+      </div>
+      <div>
+        <div class="flabel">Background</div>
+        <div class="pills" id="bg-pills"></div>
+      </div>
+      <div>
+        <div class="flabel">Versions to generate</div>
+        <div class="pills count-pills" id="count-pills"></div>
       </div>
       <div class="err-box" id="gen-err"></div>
       <button class="gen-btn" id="gen-btn" onclick="handleGenerate()">Generate Mascot →</button>
@@ -245,6 +263,7 @@
         <div class="empty-text">No mascot yet</div>
         <div class="empty-sub">Describe your app, pick a style and mood, then generate</div>
       </div>
+      <!-- Single result (count = 1) -->
       <div class="single-wrap" id="gen-result" style="display:none">
         <div class="single-card">
           <div class="single-img checker" id="gen-img-wrap">
@@ -259,6 +278,15 @@
           </div>
         </div>
         <p class="hint-text" id="gen-hint" style="display:none">Happy with it? Hit <strong>Use for Variations →</strong><br/>to generate poses & versions.</p>
+      </div>
+      <!-- Multi result (count > 1) -->
+      <div id="gen-multi" style="display:none">
+        <div class="canvas-head">
+          <span class="prog-label"><span id="gen-done-count">0</span> / <span id="gen-total-count">0</span> complete</span>
+          <button class="dl-all" id="gen-dl-all-btn" onclick="downloadAllGen()" style="display:none">↓ Download All</button>
+        </div>
+        <div class="prog-wrap"><div class="prog-fill" id="gen-prog-fill"></div></div>
+        <div class="grid" id="gen-grid"></div>
       </div>
     </div>
 
@@ -284,8 +312,15 @@
 <script>
   const STYLES = ["Flat 2D","3D Cartoon","Pixel Art","Chibi","Bold Graphic","Minimalist"];
   const MOODS  = ["Friendly","Energetic","Playful","Calm","Mysterious","Professional"];
+  const BACKGROUNDS = ["Transparent","White","Dark"];
+  const MODELS = ["gemini-2.5-flash-image","gemini-3.1-flash-image-preview"];
+
   let selectedStyle = "Flat 2D", selectedMood = "Friendly";
-  let refImageData = null, refImageType = null, genBase64 = null, varCards = [];
+  let bgPref = localStorage.getItem("nb2_bg") || "Transparent";
+  let selectedModel = localStorage.getItem("nb2_model") || MODELS[0];
+  let generateCount = 1;
+  let refImageData = null, refImageType = null, genBase64 = null;
+  let varCards = [], genCards = [];
 
   // ── Key management ──
   function getKey() { return localStorage.getItem("nb2_api_key") || ""; }
@@ -315,8 +350,9 @@
   if (!getKey()) setTimeout(openModal, 600);
 
   // ── Pills ──
-  function makePills(id, opts, getter, setter) {
+  function makePills(id, opts, getter, setter, extraClass) {
     const el = document.getElementById(id);
+    if (extraClass) el.classList.add(extraClass);
     opts.forEach(opt => {
       const b = document.createElement("button");
       b.className = "pill" + (getter() === opt ? " active" : "");
@@ -327,6 +363,48 @@
   }
   makePills("style-pills", STYLES, () => selectedStyle, v => selectedStyle = v);
   makePills("mood-pills",  MOODS,  () => selectedMood,  v => selectedMood  = v);
+  makePills("bg-pills", BACKGROUNDS, () => bgPref, v => { bgPref = v; localStorage.setItem("nb2_bg", v); updateBgPreview(); });
+  makePills("model-pills", MODELS, () => selectedModel, v => { selectedModel = v; localStorage.setItem("nb2_model", v); });
+
+  // Count pills (1–8)
+  (function() {
+    const el = document.getElementById("count-pills");
+    el.classList.add("count-pills");
+    for (let n = 1; n <= 8; n++) {
+      const b = document.createElement("button");
+      b.className = "pill" + (n === 1 ? " active" : "");
+      b.textContent = n;
+      b.onclick = () => {
+        generateCount = n;
+        el.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+        b.classList.add("active");
+        updateGenBtn();
+      };
+      el.appendChild(b);
+    }
+  })();
+
+  function updateGenBtn() {
+    const btn = document.getElementById("gen-btn");
+    if (!btn.disabled) {
+      btn.textContent = generateCount === 1 ? "Generate Mascot →" : `Generate ${generateCount} Versions →`;
+    }
+  }
+
+  function getBgInstruction() {
+    if (bgPref === "White") return "WHITE background, fully white, no transparency";
+    if (bgPref === "Dark") return "DARK/BLACK background, fully black";
+    return "TRANSPARENT background, fully transparent (alpha 0), no background color";
+  }
+
+  function updateBgPreview() {
+    const wrap = document.getElementById("gen-img-wrap");
+    if (!wrap) return;
+    wrap.classList.remove("checker","checker-white","checker-dark");
+    if (bgPref === "White") wrap.classList.add("checker-white");
+    else if (bgPref === "Dark") wrap.classList.add("checker-dark");
+    else wrap.classList.add("checker");
+  }
 
   document.getElementById("var-text").addEventListener("input", updateVarCount);
   function updateVarCount() {
@@ -385,7 +463,7 @@
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey: key, payload }),
+      body: JSON.stringify({ apiKey: key, payload, model: selectedModel }),
     });
 
     const data = await res.json();
@@ -396,34 +474,128 @@
     return imgPart.inline_data.data;
   }
 
+  function buildGenPrompt(desc) {
+    return `Create a single mascot/character for a mobile app.\n\nApp: "${desc}"\nStyle: ${selectedStyle}\nMood: ${selectedMood}\n\n- ${getBgInstruction()}\n- Center the character, nothing behind it\n- Expressive, iconic, app-ready\n- Output PNG`;
+  }
+
   // ── Generate ──
   async function handleGenerate() {
     const desc = document.getElementById("app-desc").value.trim();
     const errEl = document.getElementById("gen-err");
     if (!desc) { showErr(errEl, "Describe your app or character first."); return; }
     hideErr(errEl);
-    setBtn("gen-btn", true, "Generating…");
+    updateBgPreview();
+
     document.getElementById("gen-empty").style.display = "none";
-    document.getElementById("gen-result").style.display = "flex";
-    document.getElementById("gen-loading").style.display = "flex";
-    document.getElementById("gen-img").style.display = "none";
-    document.getElementById("gen-fail").style.display = "none";
-    document.getElementById("gen-foot").style.display = "none";
-    document.getElementById("gen-hint").style.display = "none";
-    try {
-      const b64 = await callAPI({ textPrompt: `Create a single mascot/character for a mobile app.\n\nApp: "${desc}"\nStyle: ${selectedStyle}\nMood: ${selectedMood}\n\n- TRANSPARENT background only\n- Center the character, nothing behind it\n- Expressive, iconic, app-ready\n- Output PNG with fully transparent background` });
-      genBase64 = b64;
-      document.getElementById("gen-img").src = `data:image/png;base64,${b64}`;
-      document.getElementById("gen-img").style.display = "block";
-      document.getElementById("gen-foot").style.display = "flex";
-      document.getElementById("gen-hint").style.display = "block";
-    } catch(e) {
-      document.getElementById("gen-fail").textContent = e.message;
-      document.getElementById("gen-fail").style.display = "block";
-      showErr(errEl, e.message);
+
+    if (generateCount === 1) {
+      // Single mode
+      setBtn("gen-btn", true, "Generating…");
+      document.getElementById("gen-result").style.display = "flex";
+      document.getElementById("gen-multi").style.display = "none";
+      document.getElementById("gen-loading").style.display = "flex";
+      document.getElementById("gen-img").style.display = "none";
+      document.getElementById("gen-fail").style.display = "none";
+      document.getElementById("gen-foot").style.display = "none";
+      document.getElementById("gen-hint").style.display = "none";
+      try {
+        const b64 = await callAPI({ textPrompt: buildGenPrompt(desc) });
+        genBase64 = b64;
+        document.getElementById("gen-img").src = `data:image/png;base64,${b64}`;
+        document.getElementById("gen-img").style.display = "block";
+        document.getElementById("gen-foot").style.display = "flex";
+        document.getElementById("gen-hint").style.display = "block";
+      } catch(e) {
+        document.getElementById("gen-fail").textContent = e.message;
+        document.getElementById("gen-fail").style.display = "block";
+        showErr(errEl, e.message);
+      }
+      document.getElementById("gen-loading").style.display = "none";
+      setBtn("gen-btn", false, "Generate Mascot →");
+    } else {
+      // Multi mode
+      setBtn("gen-btn", true, `Generating ${generateCount}…`);
+      document.getElementById("gen-result").style.display = "none";
+      document.getElementById("gen-multi").style.display = "block";
+      document.getElementById("gen-dl-all-btn").style.display = "none";
+      genCards = Array.from({ length: generateCount }, (_, i) => ({ label: `v${i+1}`, b64: null, loading: true, error: null }));
+      renderGenGrid(); updateGenProgress();
+
+      const prompt = buildGenPrompt(desc);
+      await Promise.allSettled(genCards.map(async (_, i) => {
+        try {
+          const b64 = await callAPI({ textPrompt: prompt });
+          genCards[i] = { ...genCards[i], b64, loading: false };
+        } catch(e) {
+          genCards[i] = { ...genCards[i], loading: false, error: e.message };
+        }
+        renderGenGrid(); updateGenProgress();
+      }));
+
+      setBtn("gen-btn", false, `Generate ${generateCount} Versions →`);
     }
-    document.getElementById("gen-loading").style.display = "none";
-    setBtn("gen-btn", false, "Generate Mascot →");
+  }
+
+  function renderGenGrid() {
+    const grid = document.getElementById("gen-grid");
+    grid.innerHTML = "";
+    genCards.forEach((card, i) => {
+      const el = document.createElement("div");
+      el.className = "rcard";
+      const imgBg = bgPref === "White" ? "checker-white" : bgPref === "Dark" ? "checker-dark" : "checker";
+      el.innerHTML = `
+        <div class="rcard-img ${imgBg}">
+          ${card.loading
+            ? `<div class="rcard-state"><div class="spin"></div><span>generating</span></div>`
+            : card.error
+              ? `<div class="rcard-state"><span style="font-size:20px;color:var(--danger)">!</span><span style="color:var(--danger)">${card.error.slice(0,28)}</span></div>`
+              : `<img src="data:image/png;base64,${card.b64}" alt="${card.label}" />`}
+        </div>
+        <div class="rcard-foot">
+          <span class="rcard-label">${card.label}</span>
+          <div class="rcard-btns">
+            ${!card.loading ? `<button class="cbtn" onclick="regenGenCard(${i})">↻</button>` : ""}
+            ${card.b64 ? `<button class="cbtn hi" onclick="downloadGenCard(${i})">↓</button>` : ""}
+            ${card.b64 ? `<button class="cbtn hi" onclick="useGenCardAsRef(${i})">→ Vars</button>` : ""}
+          </div>
+        </div>`;
+      grid.appendChild(el);
+    });
+  }
+
+  function updateGenProgress() {
+    const done = genCards.filter(c => c.b64).length;
+    document.getElementById("gen-done-count").textContent = done;
+    document.getElementById("gen-total-count").textContent = genCards.length;
+    document.getElementById("gen-prog-fill").style.width = `${(done/genCards.length)*100}%`;
+    if (done > 0) document.getElementById("gen-dl-all-btn").style.display = "inline-block";
+  }
+
+  async function regenGenCard(i) {
+    const desc = document.getElementById("app-desc").value.trim();
+    genCards[i] = { ...genCards[i], loading: true, error: null }; renderGenGrid();
+    try {
+      const b64 = await callAPI({ textPrompt: buildGenPrompt(desc) });
+      genCards[i] = { ...genCards[i], b64, loading: false };
+    } catch(e) { genCards[i] = { ...genCards[i], b64: null, loading: false, error: e.message }; }
+    renderGenGrid(); updateGenProgress();
+  }
+
+  function downloadGenCard(i) {
+    const { label, b64 } = genCards[i]; if (!b64) return;
+    const a = document.createElement("a"); a.href = `data:image/png;base64,${b64}`; a.download = `mascot-${label}.png`; a.click();
+  }
+
+  function downloadAllGen() { genCards.forEach((_, i) => { if (genCards[i].b64) downloadGenCard(i); }); }
+
+  function useGenCardAsRef(i) {
+    const { b64 } = genCards[i]; if (!b64) return;
+    refImageData = b64; refImageType = "image/png";
+    document.getElementById("preview-img").src = `data:image/png;base64,${b64}`;
+    document.getElementById("up-empty").style.display = "none";
+    document.getElementById("up-preview").style.display = "block";
+    document.getElementById("upload-zone").classList.add("filled");
+    switchMode("variations");
   }
 
   function downloadGen() {
@@ -459,7 +631,7 @@
     await Promise.allSettled(variations.map(async (label, i) => {
       try {
         const b64 = await callAPI({
-          textPrompt: `Edit this mascot with this variation: "${label}"\n\n- Keep EXACT same character, style, proportions, colors\n- TRANSPARENT background only\n- Output centered character on transparent PNG`,
+          textPrompt: `Edit this mascot with this variation: "${label}"\n\n- Keep EXACT same character, style, proportions, colors\n- ${getBgInstruction()}\n- Output centered character on PNG`,
           imageData: refImageData, imageType: refImageType
         });
         varCards[i] = { label, b64, loading: false, error: null };
@@ -475,11 +647,12 @@
   function renderGrid() {
     const grid = document.getElementById("var-grid");
     grid.innerHTML = "";
+    const imgBg = bgPref === "White" ? "checker-white" : bgPref === "Dark" ? "checker-dark" : "checker";
     varCards.forEach((card, i) => {
       const el = document.createElement("div");
       el.className = "rcard";
       el.innerHTML = `
-        <div class="rcard-img checker">
+        <div class="rcard-img ${imgBg}">
           ${card.loading
             ? `<div class="rcard-state"><div class="spin"></div><span>generating</span></div>`
             : card.error
@@ -509,7 +682,7 @@
     varCards[i] = { ...varCards[i], loading: true, error: null }; renderGrid();
     try {
       const b64 = await callAPI({
-        textPrompt: `Edit this mascot with this variation: "${varCards[i].label}"\n\n- Keep EXACT same character, style, proportions, colors\n- TRANSPARENT background only\n- Output centered character on transparent PNG`,
+        textPrompt: `Edit this mascot with this variation: "${varCards[i].label}"\n\n- Keep EXACT same character, style, proportions, colors\n- ${getBgInstruction()}\n- Output centered character on PNG`,
         imageData: refImageData, imageType: refImageType
       });
       varCards[i] = { ...varCards[i], b64, loading: false };

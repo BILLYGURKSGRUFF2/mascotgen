@@ -1,5 +1,10 @@
 const https = require("https");
 
+const ALLOWED_MODELS = [
+  "gemini-2.5-flash-image",
+  "gemini-3.1-flash-image-preview",
+];
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -9,8 +14,10 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { apiKey, payload } = req.body;
+    const { apiKey, payload, model } = req.body;
     if (!apiKey) return res.status(400).json({ error: "No API key" });
+
+    const modelName = ALLOWED_MODELS.includes(model) ? model : ALLOWED_MODELS[0];
 
     const requestBody = {
       contents: payload.contents,
@@ -24,7 +31,7 @@ module.exports = async function handler(req, res) {
     const result = await new Promise((resolve, reject) => {
       const options = {
         hostname: "generativelanguage.googleapis.com",
-        path: `/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${apiKey}`,
+        path: `/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
