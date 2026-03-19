@@ -1,6 +1,6 @@
 const https = require("https");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     const result = await new Promise((resolve, reject) => {
       const options = {
         hostname: "generativelanguage.googleapis.com",
-        path: `/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`,
+        path: `/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${apiKey}`,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
