@@ -1009,7 +1009,7 @@
     for (let i = 0; i < N; i++) if (alpha[i] < 128 && !visited[i]) alpha[i] = 255;
 
     // Stage 3: dilation — recover edge erosion (radius 4)
-    const RADIUS = 4;
+    const RADIUS = 2;
     const temp = new Uint8Array(N);
     for (let y = 0; y < origH; y++) {
       for (let x = 0; x < origW; x++) {
