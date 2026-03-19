@@ -119,8 +119,21 @@
     .checker { background-image: linear-gradient(45deg,#1c1c20 25%,transparent 25%),linear-gradient(-45deg,#1c1c20 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1c1c20 75%),linear-gradient(-45deg,transparent 75%,#1c1c20 75%); background-size: 12px 12px; background-position: 0 0,0 6px,6px -6px,-6px 0; background-color: #141416; }
     .checker-white { background: #fff; }
     .checker-dark { background: #111; }
-    .rcard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color .18s, transform .18s; }
+    .rcard { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color .18s, transform .18s; }
     .rcard:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .rcard.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .rcard-cb { position: absolute; top: 8px; left: 8px; z-index: 3; width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); opacity: 0; transition: opacity .12s; }
+    .rcard:hover .rcard-cb, .rcard.selected .rcard-cb { opacity: 1; }
+
+    /* selection bar */
+    .sel-bar { display: none; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .sel-bar.visible { display: flex; }
+    .sel-bar-cb { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+    .sel-bar-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+    .sel-bar-label span { color: var(--accent); }
+    .sel-bg-btn { background: transparent; border: 1px solid rgba(110,231,183,0.3); border-radius: 5px; color: var(--accent); cursor: pointer; font-family: 'DM Mono', monospace; font-size: 9px; padding: 3px 9px; transition: all .12s; display: none; }
+    .sel-bg-btn:hover { background: var(--accent-dim); }
+    .sel-bg-btn.visible { display: inline-block; }
     .rcard-img { height: 144px; display: flex; align-items: center; justify-content: center; }
     .rcard-img img { width: 116px; height: 116px; object-fit: contain; }
     .rcard-state { display: flex; flex-direction: column; align-items: center; gap: 7px; }
@@ -146,6 +159,21 @@
 
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--accent); color: #000; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; padding: 8px 18px; border-radius: 8px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 1000; white-space: nowrap; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* auto-bg toggle */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+    .toggle-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+    .toggle { position: relative; display: inline-block; width: 34px; height: 19px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--border2); border-radius: 19px; transition: background .2s; }
+    .toggle-slider:before { position: absolute; content: ""; height: 13px; width: 13px; left: 3px; bottom: 3px; background: var(--muted); border-radius: 50%; transition: transform .2s, background .2s; }
+    .toggle input:checked + .toggle-slider { background: var(--accent); }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(15px); background: #000; }
+
+    /* single-result bg-removing overlay */
+    .single-img { position: relative; }
+    .bg-removing-overlay { position: absolute; inset: 0; background: rgba(11,11,13,.75); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border-radius: 0; }
+    .bg-removing-overlay span { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 
     @media (max-width: 640px) {
       .layout { flex-direction: column; overflow: visible; }
@@ -223,6 +251,13 @@
         <div class="flabel">Versions to generate</div>
         <div class="pills count-pills" id="count-pills"></div>
       </div>
+      <div class="toggle-row">
+        <span class="toggle-label">✂ Auto-remove background</span>
+        <label class="toggle">
+          <input type="checkbox" class="auto-bg-toggle" onchange="toggleAutoBg(this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
       <div class="err-box" id="gen-err"></div>
       <button class="gen-btn" id="gen-btn" onclick="handleGenerate()">Generate Mascot →</button>
     </div>
@@ -251,6 +286,13 @@
         <div class="flabel">Variation List — one per line</div>
         <textarea id="var-text" rows="7" placeholder="Golden/metallic version&#10;Hands covering eyes&#10;Sleeping with Z's&#10;Angry with steam&#10;Victory dance&#10;Wearing sunglasses"></textarea>
         <div class="var-count"><span id="var-count-num">0</span> variations queued</div>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">✂ Auto-remove background</span>
+        <label class="toggle">
+          <input type="checkbox" class="auto-bg-toggle" onchange="toggleAutoBg(this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
       </div>
       <div class="err-box" id="var-err"></div>
       <button class="gen-btn" id="var-btn" onclick="handleVariations()">Generate Variations →</button>
@@ -295,6 +337,7 @@
             <div class="rcard-state" id="gen-loading" style="display:none"><div class="spin"></div><span>generating</span></div>
             <img id="gen-img" src="" alt="mascot" style="display:none" />
             <span id="gen-fail" style="display:none;color:var(--danger);font-family:'DM Mono';font-size:11px;padding:16px;text-align:center;line-height:1.5"></span>
+            <div class="bg-removing-overlay" id="gen-bg-removing" style="display:none"><div class="spin"></div><span>removing bg</span></div>
           </div>
           <div class="single-foot" id="gen-foot" style="display:none">
             <button onclick="downloadGen()">↓ PNG</button>
@@ -312,6 +355,11 @@
           <button class="dl-all" id="gen-dl-all-btn" onclick="downloadAllGen()" style="display:none">↓ Download All</button>
         </div>
         <div class="prog-wrap"><div class="prog-fill" id="gen-prog-fill"></div></div>
+        <div class="sel-bar" id="gen-sel-bar">
+          <input type="checkbox" class="sel-bar-cb" id="gen-sel-all" onchange="selectAllCards('gen', this.checked)" />
+          <span class="sel-bar-label"><span id="gen-sel-num">0</span> selected</span>
+          <button class="sel-bg-btn" id="gen-sel-bg-btn" onclick="bulkSendToBgRemover('gen')">✂ Remove BG</button>
+        </div>
         <div class="grid" id="gen-grid"></div>
       </div>
     </div>
@@ -329,6 +377,11 @@
           <button class="dl-all" id="dl-all-btn" onclick="downloadAll()" style="display:none">↓ Download All PNGs</button>
         </div>
         <div class="prog-wrap"><div class="prog-fill" id="prog-fill"></div></div>
+        <div class="sel-bar" id="var-sel-bar">
+          <input type="checkbox" class="sel-bar-cb" id="var-sel-all" onchange="selectAllCards('var', this.checked)" />
+          <span class="sel-bar-label"><span id="var-sel-num">0</span> selected</span>
+          <button class="sel-bg-btn" id="var-sel-bg-btn" onclick="bulkSendToBgRemover('var')">✂ Remove BG</button>
+        </div>
         <div class="grid" id="var-grid"></div>
       </div>
     </div>
@@ -366,6 +419,65 @@
   let refImageData = null, refImageType = null, genBase64 = null;
   let varCards = [], genCards = [], bgCards = [], bgQueue = [];
   let _bgRemoveFn = null;
+  let autoRemoveBg = localStorage.getItem("nb2_auto_bg") === "true";
+  let genSelected = new Set(), varSelected = new Set();
+
+  function toggleAutoBg(val) {
+    autoRemoveBg = val;
+    localStorage.setItem("nb2_auto_bg", val);
+    document.querySelectorAll(".auto-bg-toggle").forEach(el => el.checked = val);
+  }
+
+  function getSelSet(grid) { return grid === 'gen' ? genSelected : varSelected; }
+  function getCards(grid) { return grid === 'gen' ? genCards : varCards; }
+  function getRenderFn(grid) { return grid === 'gen' ? renderGenGrid : renderGrid; }
+
+  function toggleCardSelect(grid, i, checked) {
+    const sel = getSelSet(grid);
+    checked ? sel.add(i) : sel.delete(i);
+    updateSelBar(grid);
+    getRenderFn(grid)();
+  }
+
+  function selectAllCards(grid, checked) {
+    const sel = getSelSet(grid);
+    const cards = getCards(grid);
+    sel.clear();
+    if (checked) cards.forEach((c, i) => { if (c.b64) sel.add(i); });
+    updateSelBar(grid);
+    getRenderFn(grid)();
+  }
+
+  function updateSelBar(grid) {
+    const sel = getSelSet(grid);
+    const cards = getCards(grid);
+    const n = sel.size;
+    const total = cards.filter(c => c.b64).length;
+    const bar = document.getElementById(`${grid}-sel-bar`);
+    const numEl = document.getElementById(`${grid}-sel-num`);
+    const bgBtn = document.getElementById(`${grid}-sel-bg-btn`);
+    const allCb = document.getElementById(`${grid}-sel-all`);
+    if (!bar) return;
+    bar.classList.toggle('visible', total > 0);
+    numEl.textContent = n;
+    bgBtn.classList.toggle('visible', n > 0);
+    if (allCb) {
+      allCb.checked = n > 0 && n === total;
+      allCb.indeterminate = n > 0 && n < total;
+    }
+  }
+
+  function bulkSendToBgRemover(grid) {
+    const sel = getSelSet(grid);
+    const cards = getCards(grid);
+    sel.forEach(i => {
+      const c = cards[i];
+      if (c && c.b64) sendToBgRemover(c.b64, c.label);
+    });
+    sel.clear();
+    updateSelBar(grid);
+    getRenderFn(grid)();
+  }
 
   // ── Key management ──
   function getKey() { return localStorage.getItem("nb2_api_key") || ""; }
@@ -391,6 +503,8 @@
   function closeModal() { document.getElementById("modal").classList.remove("open"); }
   updateBadge();
   if (!getKey()) setTimeout(openModal, 600);
+  // sync toggle state after DOM is ready
+  document.querySelectorAll(".auto-bg-toggle").forEach(el => el.checked = autoRemoveBg);
 
   // ── Pills ──
   function makePills(id, opts, getter, setter) {
@@ -538,20 +652,36 @@
         genBase64 = b64;
         document.getElementById("gen-img").src = `data:image/png;base64,${b64}`;
         document.getElementById("gen-img").style.display = "block";
+        document.getElementById("gen-loading").style.display = "none";
+        if (autoRemoveBg) {
+          document.getElementById("gen-bg-removing").style.display = "flex";
+          try {
+            const removeBg = await loadBgLib();
+            const blob = await removeBg(`data:image/png;base64,${b64}`);
+            const result = await blobToBase64(blob);
+            genBase64 = result;
+            document.getElementById("gen-img").src = `data:image/png;base64,${result}`;
+            const wrap = document.getElementById("gen-img-wrap");
+            wrap.classList.remove("checker-white","checker-dark");
+            wrap.classList.add("checker");
+          } catch(e) { /* keep original on failure */ }
+          document.getElementById("gen-bg-removing").style.display = "none";
+        }
         document.getElementById("gen-foot").style.display = "flex";
         document.getElementById("gen-hint").style.display = "block";
       } catch(e) {
+        document.getElementById("gen-loading").style.display = "none";
         document.getElementById("gen-fail").textContent = e.message;
         document.getElementById("gen-fail").style.display = "block";
         showErr(errEl, e.message);
       }
-      document.getElementById("gen-loading").style.display = "none";
       setBtn("gen-btn", false, "Generate Mascot →");
     } else {
       setBtn("gen-btn", true, `Generating ${generateCount}…`);
       document.getElementById("gen-result").style.display = "none";
       document.getElementById("gen-multi").style.display = "block";
       document.getElementById("gen-dl-all-btn").style.display = "none";
+      genSelected.clear();
       genCards = Array.from({ length: generateCount }, (_, i) => ({ label: `v${i+1}`, b64: null, loading: true, error: null }));
       renderGenGrid(); updateGenProgress();
       const prompt = buildGenPrompt(desc);
@@ -559,10 +689,12 @@
         try {
           const b64 = await callAPI({ textPrompt: prompt });
           genCards[i] = { ...genCards[i], b64, loading: false };
+          renderGenGrid(); updateGenProgress();
+          if (autoRemoveBg) await autoRemoveBgCard(genCards, i, renderGenGrid, updateGenProgress);
         } catch(e) {
           genCards[i] = { ...genCards[i], loading: false, error: e.message };
+          renderGenGrid(); updateGenProgress();
         }
-        renderGenGrid(); updateGenProgress();
       }));
       setBtn("gen-btn", false, `Generate ${generateCount} Versions →`);
     }
@@ -574,14 +706,19 @@
     const imgBg = bgPref === "Dark" ? "checker-dark" : "checker-white";
     genCards.forEach((card, i) => {
       const el = document.createElement("div");
-      el.className = "rcard";
+      const isSel = genSelected.has(i);
+      el.className = "rcard" + (isSel ? " selected" : "");
+      const cardBg = card.b64 && !card.loading && !card.bgRemoving ? (autoRemoveBg ? "checker" : imgBg) : imgBg;
       el.innerHTML = `
-        <div class="rcard-img ${imgBg}">
+        ${card.b64 ? `<input type="checkbox" class="rcard-cb" ${isSel ? "checked" : ""} onchange="toggleCardSelect('gen',${i},this.checked)" onclick="event.stopPropagation()" />` : ""}
+        <div class="rcard-img ${card.bgRemoving ? "checker" : cardBg}">
           ${card.loading
             ? `<div class="rcard-state"><div class="spin"></div><span>generating</span></div>`
-            : card.error
-              ? `<div class="rcard-state"><span style="font-size:20px;color:var(--danger)">!</span><span style="color:var(--danger)">${card.error.slice(0,28)}</span></div>`
-              : `<img src="data:image/png;base64,${card.b64}" alt="${card.label}" />`}
+            : card.bgRemoving
+              ? `<div class="rcard-state"><div class="spin"></div><span>removing bg</span></div>`
+              : card.error
+                ? `<div class="rcard-state"><span style="font-size:20px;color:var(--danger)">!</span><span style="color:var(--danger)">${card.error.slice(0,28)}</span></div>`
+                : `<img src="data:image/png;base64,${card.b64}" alt="${card.label}" />`}
         </div>
         <div class="rcard-foot">
           <span class="rcard-label">${card.label}</span>
@@ -594,6 +731,7 @@
         </div>`;
       grid.appendChild(el);
     });
+    updateSelBar('gen');
   }
 
   function updateGenProgress() {
@@ -610,8 +748,12 @@
     try {
       const b64 = await callAPI({ textPrompt: buildGenPrompt(desc) });
       genCards[i] = { ...genCards[i], b64, loading: false };
-    } catch(e) { genCards[i] = { ...genCards[i], b64: null, loading: false, error: e.message }; }
-    renderGenGrid(); updateGenProgress();
+      renderGenGrid(); updateGenProgress();
+      if (autoRemoveBg) await autoRemoveBgCard(genCards, i, renderGenGrid, updateGenProgress);
+    } catch(e) {
+      genCards[i] = { ...genCards[i], b64: null, loading: false, error: e.message };
+      renderGenGrid(); updateGenProgress();
+    }
   }
 
   function downloadGenCard(i) {
@@ -657,6 +799,7 @@
     if (!variations.length) { showErr(errEl, "Add at least one variation."); return; }
     hideErr(errEl);
     setBtn("var-btn", true, "Generating…");
+    varSelected.clear();
     varCards = variations.map(label => ({ label, b64: null, loading: true, error: null }));
     document.getElementById("var-empty").style.display = "none";
     document.getElementById("var-result").style.display = "block";
@@ -669,10 +812,12 @@
           imageData: refImageData, imageType: refImageType
         });
         varCards[i] = { label, b64, loading: false, error: null };
+        renderGrid(); updateProgress();
+        if (autoRemoveBg) await autoRemoveBgCard(varCards, i, renderGrid, updateProgress);
       } catch(e) {
         varCards[i] = { label, b64: null, loading: false, error: e.message };
+        renderGrid(); updateProgress();
       }
-      renderGrid(); updateProgress();
     }));
     setBtn("var-btn", false, `Generate ${variations.length} Variation${variations.length!==1?"s":""} →`);
   }
@@ -683,14 +828,18 @@
     const imgBg = bgPref === "Dark" ? "checker-dark" : "checker-white";
     varCards.forEach((card, i) => {
       const el = document.createElement("div");
-      el.className = "rcard";
+      const isSel = varSelected.has(i);
+      el.className = "rcard" + (isSel ? " selected" : "");
       el.innerHTML = `
-        <div class="rcard-img ${imgBg}">
+        ${card.b64 ? `<input type="checkbox" class="rcard-cb" ${isSel ? "checked" : ""} onchange="toggleCardSelect('var',${i},this.checked)" onclick="event.stopPropagation()" />` : ""}
+        <div class="rcard-img ${card.bgRemoving ? "checker" : imgBg}">
           ${card.loading
             ? `<div class="rcard-state"><div class="spin"></div><span>generating</span></div>`
-            : card.error
-              ? `<div class="rcard-state"><span style="font-size:20px;color:var(--danger)">!</span><span style="color:var(--danger)">${card.error.slice(0,28)}</span></div>`
-              : `<img src="data:image/png;base64,${card.b64}" alt="${card.label}" />`}
+            : card.bgRemoving
+              ? `<div class="rcard-state"><div class="spin"></div><span>removing bg</span></div>`
+              : card.error
+                ? `<div class="rcard-state"><span style="font-size:20px;color:var(--danger)">!</span><span style="color:var(--danger)">${card.error.slice(0,28)}</span></div>`
+                : `<img src="data:image/png;base64,${card.b64}" alt="${card.label}" />`}
         </div>
         <div class="rcard-foot">
           <span class="rcard-label" title="${card.label}">${card.label}</span>
@@ -702,6 +851,7 @@
         </div>`;
       grid.appendChild(el);
     });
+    updateSelBar('var');
   }
 
   function updateProgress() {
@@ -720,8 +870,12 @@
         imageData: refImageData, imageType: refImageType
       });
       varCards[i] = { ...varCards[i], b64, loading: false };
-    } catch(e) { varCards[i] = { ...varCards[i], b64: null, loading: false, error: e.message }; }
-    renderGrid(); updateProgress();
+      renderGrid(); updateProgress();
+      if (autoRemoveBg) await autoRemoveBgCard(varCards, i, renderGrid, updateProgress);
+    } catch(e) {
+      varCards[i] = { ...varCards[i], b64: null, loading: false, error: e.message };
+      renderGrid(); updateProgress();
+    }
   }
 
   function downloadCard(i) {
@@ -779,9 +933,26 @@
     r.readAsDataURL(file);
   }
 
+  // Auto-remove bg for a card in a card array
+  async function autoRemoveBgCard(cards, i, renderFn, progressFn) {
+    if (!cards[i].b64) return;
+    cards[i] = { ...cards[i], bgRemoving: true };
+    renderFn();
+    try {
+      const removeBg = await loadBgLib();
+      const blob = await removeBg(`data:image/png;base64,${cards[i].b64}`);
+      const result = await blobToBase64(blob);
+      cards[i] = { ...cards[i], b64: result, bgRemoving: false };
+    } catch(e) {
+      cards[i] = { ...cards[i], bgRemoving: false };
+    }
+    renderFn();
+    if (progressFn) progressFn();
+  }
+
   async function loadBgLib() {
     if (_bgRemoveFn) return _bgRemoveFn;
-    const mod = await import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs");
+    const mod = await import("https://esm.sh/@imgly/background-removal@1.7.0");
     _bgRemoveFn = mod.removeBackground;
     return _bgRemoveFn;
   }
