@@ -16,14 +16,15 @@ exports.handler = async (event) => {
 
     if (!apiKey) return { statusCode: 400, headers, body: JSON.stringify({ error: "No API key" }) };
 
-    // Force image output in the payload
-    payload.generationConfig = {
-      ...payload.generationConfig,
-      responseModalities: ["IMAGE", "TEXT"],
-      responseMimeType: "image/png",
+    // Build request exactly as Google's REST docs show
+    const requestBody = {
+      contents: payload.contents,
+      generation_config: {
+        response_modalities: ["TEXT", "IMAGE"]
+      }
     };
 
-    const postData = JSON.stringify(payload);
+    const postData = JSON.stringify(requestBody);
 
     const result = await new Promise((resolve, reject) => {
       const options = {
