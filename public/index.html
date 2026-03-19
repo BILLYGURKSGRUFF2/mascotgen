@@ -955,57 +955,85 @@
     return _bgRemoveFn;
   }
 
-  // Removes background with mask dilation to recover edges the model clips into
+  // Removes background: pre-pad → model → crop → BFS hole-fill → dilation
   async function removeBgEnhanced(src) {
     const removeBg = await loadBgLib();
 
-    // Get the selection mask (white = keep, black = remove)
-    const maskBlob = await removeBg(src, { output: { type: 'mask', format: 'image/png' } });
-
-    // Load original + mask as bitmaps in parallel
+    // Stage 1a: load original, build padded image
     const origBlob = await fetch(src).then(r => r.blob());
-    const [origBitmap, maskBitmap] = await Promise.all([
-      createImageBitmap(origBlob),
-      createImageBitmap(maskBlob)
-    ]);
+    const origBitmap = await createImageBitmap(origBlob);
+    const origW = origBitmap.width, origH = origBitmap.height;
+    const PAD = Math.max(12, Math.round(Math.min(origW, origH) * 0.04));
+    const PW = origW + PAD * 2, PH = origH + PAD * 2;
 
-    const w = origBitmap.width, h = origBitmap.height;
+    const padCanvas = document.createElement('canvas');
+    padCanvas.width = PW; padCanvas.height = PH;
+    const pCtx = padCanvas.getContext('2d');
+    pCtx.fillStyle = '#ffffff';
+    pCtx.fillRect(0, 0, PW, PH);
+    pCtx.drawImage(origBitmap, PAD, PAD, origW, origH);
+
+    // Stage 1b: get mask on padded image
+    const maskBlob = await removeBg(padCanvas.toDataURL('image/png'), {
+      output: { type: 'mask', format: 'image/png' }
+    });
+
+    // Stage 1c: crop mask back to original dimensions
+    const maskBitmap = await createImageBitmap(maskBlob);
     const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
+    canvas.width = origW; canvas.height = origH;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(maskBitmap, -PAD, -PAD);
+    const maskPx = ctx.getImageData(0, 0, origW, origH).data;
+    const N = origW * origH;
+    const alpha = new Uint8Array(N);
+    for (let i = 0; i < N; i++) alpha[i] = maskPx[i * 4];
 
-    // Read mask values from R channel (grayscale: 255 = foreground, 0 = background)
-    ctx.drawImage(maskBitmap, 0, 0, w, h);
-    const maskPx = ctx.getImageData(0, 0, w, h).data;
-    const alpha = new Uint8Array(w * h);
-    for (let i = 0; i < w * h; i++) alpha[i] = maskPx[i * 4];
+    // Stage 2: BFS flood-fill — restore interior holes
+    const visited = new Uint8Array(N);
+    const queue = new Int32Array(N);
+    let head = 0, tail = 0;
+    const seed = idx => {
+      if (!visited[idx] && alpha[idx] < 128) { visited[idx] = 1; queue[tail++] = idx; }
+    };
+    for (let x = 0; x < origW; x++) { seed(x); seed((origH - 1) * origW + x); }
+    for (let y = 0; y < origH; y++) { seed(y * origW); seed(y * origW + origW - 1); }
+    while (head < tail) {
+      const idx = queue[head++];
+      const x = idx % origW, y = Math.floor(idx / origW);
+      if (x > 0)         seed(idx - 1);
+      if (x < origW - 1) seed(idx + 1);
+      if (y > 0)         seed(idx - origW);
+      if (y < origH - 1) seed(idx + origW);
+    }
+    for (let i = 0; i < N; i++) if (alpha[i] < 128 && !visited[i]) alpha[i] = 255;
 
-    // Two-pass max filter (separable morphological dilation) — recovers eaten edges
-    const RADIUS = 6;
-    const temp = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
+    // Stage 3: dilation — recover edge erosion (radius 4)
+    const RADIUS = 4;
+    const temp = new Uint8Array(N);
+    for (let y = 0; y < origH; y++) {
+      for (let x = 0; x < origW; x++) {
         let mx = 0;
-        const x0 = Math.max(0, x - RADIUS), x1 = Math.min(w - 1, x + RADIUS);
-        for (let nx = x0; nx <= x1; nx++) mx = Math.max(mx, alpha[y * w + nx]);
-        temp[y * w + x] = mx;
+        const x0 = Math.max(0, x - RADIUS), x1 = Math.min(origW - 1, x + RADIUS);
+        for (let nx = x0; nx <= x1; nx++) mx = Math.max(mx, alpha[y * origW + nx]);
+        temp[y * origW + x] = mx;
       }
     }
-    const dilated = new Uint8Array(w * h);
-    for (let x = 0; x < w; x++) {
-      for (let y = 0; y < h; y++) {
+    const dilated = new Uint8Array(N);
+    for (let x = 0; x < origW; x++) {
+      for (let y = 0; y < origH; y++) {
         let mx = 0;
-        const y0 = Math.max(0, y - RADIUS), y1 = Math.min(h - 1, y + RADIUS);
-        for (let ny = y0; ny <= y1; ny++) mx = Math.max(mx, temp[ny * w + x]);
-        dilated[y * w + x] = mx;
+        const y0 = Math.max(0, y - RADIUS), y1 = Math.min(origH - 1, y + RADIUS);
+        for (let ny = y0; ny <= y1; ny++) mx = Math.max(mx, temp[ny * origW + x]);
+        dilated[y * origW + x] = mx;
       }
     }
 
-    // Apply dilated mask as alpha onto the original image
-    ctx.clearRect(0, 0, w, h);
+    // Composite dilated mask onto original image
+    ctx.clearRect(0, 0, origW, origH);
     ctx.drawImage(origBitmap, 0, 0);
-    const imgData = ctx.getImageData(0, 0, w, h);
-    for (let i = 0; i < w * h; i++) imgData.data[i * 4 + 3] = dilated[i];
+    const imgData = ctx.getImageData(0, 0, origW, origH);
+    for (let i = 0; i < N; i++) imgData.data[i * 4 + 3] = dilated[i];
     ctx.putImageData(imgData, 0, 0);
 
     return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
