@@ -455,7 +455,7 @@
     if (!key) { openModal(); throw new Error("Add your Gemini API key first — tap the button in the top right"); }
 
     const parts = [];
-    if (imageData) parts.push({ inline_data: { mime_type: imageType, data: imageData } });
+    if (imageData) parts.push({ inlineData: { mimeType: imageType, data: imageData } });
     parts.push({ text: textPrompt });
 
     const payload = { contents: [{ parts }], generationConfig: { responseModalities: ["TEXT","IMAGE"] } };
@@ -469,9 +469,13 @@
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error?.message || data?.error || `HTTP ${res.status}`);
     const resParts = data?.candidates?.[0]?.content?.parts || [];
-    const imgPart = resParts.find(p => p.inline_data?.mime_type?.startsWith("image/"));
-    if (!imgPart) throw new Error("No image returned — try again");
-    return imgPart.inline_data.data;
+    const imgPart = resParts.find(p => {
+      const id = p.inlineData || p.inline_data;
+      return id && (id.mimeType || id.mime_type)?.startsWith("image/");
+    });
+    if (!imgPart) throw new Error(data?.candidates?.[0]?.finishReason || data?.error?.message || "No image returned — try again");
+    const imgData = imgPart.inlineData || imgPart.inline_data;
+    return imgData.data;
   }
 
   function buildGenPrompt(desc) {
