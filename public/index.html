@@ -55,8 +55,8 @@
 
     /* sidebar */
     .sidebar { width: 300px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 18px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
-    .tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 9px; padding: 3px; }
-    .tab { flex: 1; background: transparent; border: none; border-radius: 7px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 8px; transition: all .15s; }
+    .tabs { display: flex; gap: 3px; background: var(--surface); border-radius: 9px; padding: 3px; }
+    .tab { flex: 1; background: transparent; border: none; border-radius: 7px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; padding: 8px 4px; transition: all .15s; white-space: nowrap; }
     .tab.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.5); }
     .flabel { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 7px; }
     textarea { width: 100%; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; line-height: 1.7; padding: 10px 11px; resize: none; outline: none; transition: border-color .15s; }
@@ -82,6 +82,7 @@
     .up-btn.danger { background: var(--danger); color: #fff; }
     .var-count { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); margin-top: 5px; }
     .var-count span { color: var(--accent); }
+    .queue-row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
 
     .err-box { background: rgba(255,107,107,.07); border: 1px solid rgba(255,107,107,.2); border-radius: 8px; color: var(--danger); font-family: 'DM Mono', monospace; font-size: 10px; padding: 9px 11px; line-height: 1.5; display: none; }
     .err-box.show { display: block; }
@@ -89,7 +90,6 @@
     .gen-btn { width: 100%; background: var(--accent); border: none; border-radius: 10px; color: #000; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; padding: 13px; transition: opacity .15s, transform .1s; }
     .gen-btn:hover:not(:disabled) { opacity: .85; transform: translateY(-1px); }
     .gen-btn:disabled { opacity: .35; cursor: not-allowed; }
-    .gen-btn.stop { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
 
     /* canvas */
     .canvas { flex: 1; padding: 22px; overflow-y: auto; }
@@ -106,8 +106,8 @@
     .single-card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; width: 260px; }
     .single-img { height: 240px; display: flex; align-items: center; justify-content: center; }
     .single-img img { width: 200px; height: 200px; object-fit: contain; }
-    .single-foot { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
-    .single-foot button { flex: 1; background: transparent; border: 1px solid var(--border2); border-radius: 7px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 8px; transition: all .15s; }
+    .single-foot { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+    .single-foot button { flex: 1; background: transparent; border: 1px solid var(--border2); border-radius: 7px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; padding: 8px 4px; transition: all .15s; }
     .single-foot button:hover { color: var(--accent); border-color: var(--accent); }
     .single-foot button.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
     .single-foot button.primary:hover { opacity: .85; }
@@ -158,7 +158,6 @@
 <div class="modal-bg" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <h2>⚙️ Settings</h2>
-
     <div class="modal-section">
       <div class="flabel">Gemini API Key</div>
       <p>Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> — stored in your browser only.</p>
@@ -167,14 +166,11 @@
         <button class="modal-save" onclick="saveKey()">Save</button>
       </div>
     </div>
-
     <div class="modal-divider"></div>
-
     <div class="modal-section">
       <div class="flabel">Model</div>
       <div class="pills" id="model-pills"></div>
     </div>
-
     <div class="modal-foot">
       <span class="modal-confirm" id="modal-confirm">✓ Saved!</span>
       <button class="modal-ok" onclick="closeModal()">Close</button>
@@ -197,6 +193,7 @@
     <div class="tabs">
       <button class="tab active" onclick="switchMode('generate')">✦ Generate</button>
       <button class="tab" onclick="switchMode('variations')">◈ Variations</button>
+      <button class="tab" onclick="switchMode('removebg')">✂ Remove BG</button>
     </div>
 
     <!-- Generate panel -->
@@ -253,6 +250,29 @@
       <div class="err-box" id="var-err"></div>
       <button class="gen-btn" id="var-btn" onclick="handleVariations()">Generate Variations →</button>
     </div>
+
+    <!-- Remove BG panel -->
+    <div class="panel" id="panel-removebg">
+      <div>
+        <div class="flabel">Images to process</div>
+        <div class="upload-zone" id="bg-upload-zone"
+             onclick="document.getElementById('bg-file-input').click()"
+             ondragover="onBgDragOver(event)" ondragleave="onBgDragLeave()" ondrop="onBgDrop(event)">
+          <input type="file" id="bg-file-input" accept="image/*" multiple style="display:none" onchange="onBgFileChange(event)" />
+          <div class="up-empty">
+            <svg width="26" height="26" fill="none" viewBox="0 0 24 24"><path d="M12 4v12m0-12L8 8m4-4l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Drop images or click to add</span>
+            <span class="up-hint">PNG · JPG · WebP · Select multiple</span>
+          </div>
+        </div>
+        <div class="queue-row">
+          <div class="var-count"><span id="bg-queue-count">0</span> images queued</div>
+          <button class="cbtn" id="bg-clear-btn" onclick="clearBgQueue()" style="display:none">clear all</button>
+        </div>
+      </div>
+      <div class="err-box" id="bg-err"></div>
+      <button class="gen-btn" id="bg-btn" onclick="handleRemoveBg()" disabled>Remove Backgrounds →</button>
+    </div>
   </aside>
 
   <main class="canvas">
@@ -266,7 +286,7 @@
       <!-- Single result (count = 1) -->
       <div class="single-wrap" id="gen-result" style="display:none">
         <div class="single-card">
-          <div class="single-img checker" id="gen-img-wrap">
+          <div class="single-img checker-white" id="gen-img-wrap">
             <div class="rcard-state" id="gen-loading" style="display:none"><div class="spin"></div><span>generating</span></div>
             <img id="gen-img" src="" alt="mascot" style="display:none" />
             <span id="gen-fail" style="display:none;color:var(--danger);font-family:'DM Mono';font-size:11px;padding:16px;text-align:center;line-height:1.5"></span>
@@ -274,10 +294,11 @@
           <div class="single-foot" id="gen-foot" style="display:none">
             <button onclick="downloadGen()">↓ PNG</button>
             <button onclick="handleGenerate()">↻ Redo</button>
-            <button class="primary" onclick="useAsReference()">Use for Variations →</button>
+            <button onclick="sendSingleToBgRemover()">✂ BG</button>
+            <button class="primary" onclick="useAsReference()">→ Vars</button>
           </div>
         </div>
-        <p class="hint-text" id="gen-hint" style="display:none">Happy with it? Hit <strong>Use for Variations →</strong><br/>to generate poses & versions.</p>
+        <p class="hint-text" id="gen-hint" style="display:none">Use <strong>✂ BG</strong> to remove background · <strong>→ Vars</strong> to generate poses</p>
       </div>
       <!-- Multi result (count > 1) -->
       <div id="gen-multi" style="display:none">
@@ -306,21 +327,40 @@
         <div class="grid" id="var-grid"></div>
       </div>
     </div>
+
+    <!-- Remove BG result -->
+    <div class="result-panel" id="result-removebg">
+      <div class="empty" id="bg-empty">
+        <div class="empty-icon">✂</div>
+        <div class="empty-text">No images yet</div>
+        <div class="empty-sub">Hit ✂ BG on any generated image, or upload images directly — then click Remove Backgrounds</div>
+      </div>
+      <div id="bg-result" style="display:none">
+        <div class="canvas-head">
+          <span class="prog-label"><span id="bg-done-count">0</span> / <span id="bg-total-count">0</span> complete</span>
+          <button class="dl-all" id="bg-dl-all-btn" onclick="downloadAllBg()" style="display:none">↓ Download All</button>
+        </div>
+        <div class="prog-wrap"><div class="prog-fill" id="bg-prog-fill"></div></div>
+        <div class="grid" id="bg-grid"></div>
+      </div>
+    </div>
   </main>
 </div>
 
 <script>
   const STYLES = ["Flat 2D","3D Cartoon","Pixel Art","Chibi","Bold Graphic","Minimalist"];
   const MOODS  = ["Friendly","Energetic","Playful","Calm","Mysterious","Professional"];
-  const BACKGROUNDS = ["Transparent","White","Dark"];
+  const BACKGROUNDS = ["White","Dark"];
   const MODELS = ["gemini-3.1-flash-image-preview","gemini-2.5-flash-image"];
 
   let selectedStyle = "Flat 2D", selectedMood = "Friendly";
-  let bgPref = localStorage.getItem("nb2_bg") || "Transparent";
+  let bgPref = localStorage.getItem("nb2_bg") || "White";
+  if (bgPref === "Transparent") { bgPref = "White"; localStorage.setItem("nb2_bg", "White"); }
   let selectedModel = localStorage.getItem("nb2_model") || MODELS[0];
   let generateCount = 1;
   let refImageData = null, refImageType = null, genBase64 = null;
-  let varCards = [], genCards = [];
+  let varCards = [], genCards = [], bgCards = [], bgQueue = [];
+  let _bgRemoveFn = null;
 
   // ── Key management ──
   function getKey() { return localStorage.getItem("nb2_api_key") || ""; }
@@ -345,14 +385,11 @@
   }
   function closeModal() { document.getElementById("modal").classList.remove("open"); }
   updateBadge();
-
-  // Auto-open modal if no key
   if (!getKey()) setTimeout(openModal, 600);
 
   // ── Pills ──
-  function makePills(id, opts, getter, setter, extraClass) {
+  function makePills(id, opts, getter, setter) {
     const el = document.getElementById(id);
-    if (extraClass) el.classList.add(extraClass);
     opts.forEach(opt => {
       const b = document.createElement("button");
       b.className = "pill" + (getter() === opt ? " active" : "");
@@ -369,7 +406,6 @@
   // Count pills (1–8)
   (function() {
     const el = document.getElementById("count-pills");
-    el.classList.add("count-pills");
     for (let n = 1; n <= 8; n++) {
       const b = document.createElement("button");
       b.className = "pill" + (n === 1 ? " active" : "");
@@ -386,24 +422,19 @@
 
   function updateGenBtn() {
     const btn = document.getElementById("gen-btn");
-    if (!btn.disabled) {
-      btn.textContent = generateCount === 1 ? "Generate Mascot →" : `Generate ${generateCount} Versions →`;
-    }
+    if (!btn.disabled) btn.textContent = generateCount === 1 ? "Generate Mascot →" : `Generate ${generateCount} Versions →`;
   }
 
   function getBgInstruction() {
-    if (bgPref === "White") return "WHITE background, fully white, no transparency";
     if (bgPref === "Dark") return "DARK/BLACK background, fully black";
-    return "TRANSPARENT background, fully transparent (alpha 0), no background color";
+    return "WHITE background, fully white, no transparency";
   }
 
   function updateBgPreview() {
     const wrap = document.getElementById("gen-img-wrap");
     if (!wrap) return;
     wrap.classList.remove("checker","checker-white","checker-dark");
-    if (bgPref === "White") wrap.classList.add("checker-white");
-    else if (bgPref === "Dark") wrap.classList.add("checker-dark");
-    else wrap.classList.add("checker");
+    wrap.classList.add(bgPref === "Dark" ? "checker-dark" : "checker-white");
   }
 
   document.getElementById("var-text").addEventListener("input", updateVarCount);
@@ -416,14 +447,15 @@
 
   // ── Mode ──
   function switchMode(mode) {
-    document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active",(i===0&&mode==="generate")||(i===1&&mode==="variations")));
+    document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active",
+      (i===0&&mode==="generate")||(i===1&&mode==="variations")||(i===2&&mode==="removebg")));
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     document.getElementById(`panel-${mode}`).classList.add("active");
     document.querySelectorAll(".result-panel").forEach(p => p.classList.remove("active"));
     document.getElementById(`result-${mode}`).classList.add("active");
   }
 
-  // ── Upload ──
+  // ── Upload (variations ref) ──
   function triggerUpload() { if (!refImageData) document.getElementById("file-input").click(); }
   function onDragOver(e) { e.preventDefault(); document.getElementById("upload-zone").classList.add("drag"); }
   function onDragLeave() { document.getElementById("upload-zone").classList.remove("drag"); }
@@ -453,19 +485,15 @@
   async function callAPI({ textPrompt, imageData, imageType }) {
     const key = getKey();
     if (!key) { openModal(); throw new Error("Add your Gemini API key first — tap the button in the top right"); }
-
     const parts = [];
     if (imageData) parts.push({ inlineData: { mimeType: imageType, data: imageData } });
     parts.push({ text: textPrompt });
-
     const payload = { contents: [{ parts }], generationConfig: { responseModalities: ["TEXT","IMAGE"] } };
-
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ apiKey: key, payload, model: selectedModel }),
     });
-
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error?.message || data?.error || `HTTP ${res.status}`);
     const resParts = data?.candidates?.[0]?.content?.parts || [];
@@ -489,11 +517,9 @@
     if (!desc) { showErr(errEl, "Describe your app or character first."); return; }
     hideErr(errEl);
     updateBgPreview();
-
     document.getElementById("gen-empty").style.display = "none";
 
     if (generateCount === 1) {
-      // Single mode
       setBtn("gen-btn", true, "Generating…");
       document.getElementById("gen-result").style.display = "flex";
       document.getElementById("gen-multi").style.display = "none";
@@ -517,14 +543,12 @@
       document.getElementById("gen-loading").style.display = "none";
       setBtn("gen-btn", false, "Generate Mascot →");
     } else {
-      // Multi mode
       setBtn("gen-btn", true, `Generating ${generateCount}…`);
       document.getElementById("gen-result").style.display = "none";
       document.getElementById("gen-multi").style.display = "block";
       document.getElementById("gen-dl-all-btn").style.display = "none";
       genCards = Array.from({ length: generateCount }, (_, i) => ({ label: `v${i+1}`, b64: null, loading: true, error: null }));
       renderGenGrid(); updateGenProgress();
-
       const prompt = buildGenPrompt(desc);
       await Promise.allSettled(genCards.map(async (_, i) => {
         try {
@@ -535,7 +559,6 @@
         }
         renderGenGrid(); updateGenProgress();
       }));
-
       setBtn("gen-btn", false, `Generate ${generateCount} Versions →`);
     }
   }
@@ -543,10 +566,10 @@
   function renderGenGrid() {
     const grid = document.getElementById("gen-grid");
     grid.innerHTML = "";
+    const imgBg = bgPref === "Dark" ? "checker-dark" : "checker-white";
     genCards.forEach((card, i) => {
       const el = document.createElement("div");
       el.className = "rcard";
-      const imgBg = bgPref === "White" ? "checker-white" : bgPref === "Dark" ? "checker-dark" : "checker";
       el.innerHTML = `
         <div class="rcard-img ${imgBg}">
           ${card.loading
@@ -560,6 +583,7 @@
           <div class="rcard-btns">
             ${!card.loading ? `<button class="cbtn" onclick="regenGenCard(${i})">↻</button>` : ""}
             ${card.b64 ? `<button class="cbtn hi" onclick="downloadGenCard(${i})">↓</button>` : ""}
+            ${card.b64 ? `<button class="cbtn hi" onclick="sendGenCardToBgRemover(${i})">✂ BG</button>` : ""}
             ${card.b64 ? `<button class="cbtn hi" onclick="useGenCardAsRef(${i})">→ Vars</button>` : ""}
           </div>
         </div>`;
@@ -589,8 +613,9 @@
     const { label, b64 } = genCards[i]; if (!b64) return;
     const a = document.createElement("a"); a.href = `data:image/png;base64,${b64}`; a.download = `mascot-${label}.png`; a.click();
   }
-
   function downloadAllGen() { genCards.forEach((_, i) => { if (genCards[i].b64) downloadGenCard(i); }); }
+
+  function sendGenCardToBgRemover(i) { sendToBgRemover(genCards[i].b64, genCards[i].label); }
 
   function useGenCardAsRef(i) {
     const { b64 } = genCards[i]; if (!b64) return;
@@ -606,6 +631,7 @@
     if (!genBase64) return;
     const a = document.createElement("a"); a.href = `data:image/png;base64,${genBase64}`; a.download = "mascot.png"; a.click();
   }
+  function sendSingleToBgRemover() { if (genBase64) sendToBgRemover(genBase64, "mascot"); }
   function useAsReference() {
     if (!genBase64) return;
     refImageData = genBase64; refImageType = "image/png";
@@ -631,7 +657,6 @@
     document.getElementById("var-result").style.display = "block";
     document.getElementById("dl-all-btn").style.display = "none";
     renderGrid();
-
     await Promise.allSettled(variations.map(async (label, i) => {
       try {
         const b64 = await callAPI({
@@ -644,14 +669,13 @@
       }
       renderGrid(); updateProgress();
     }));
-
     setBtn("var-btn", false, `Generate ${variations.length} Variation${variations.length!==1?"s":""} →`);
   }
 
   function renderGrid() {
     const grid = document.getElementById("var-grid");
     grid.innerHTML = "";
-    const imgBg = bgPref === "White" ? "checker-white" : bgPref === "Dark" ? "checker-dark" : "checker";
+    const imgBg = bgPref === "Dark" ? "checker-dark" : "checker-white";
     varCards.forEach((card, i) => {
       const el = document.createElement("div");
       el.className = "rcard";
@@ -668,6 +692,7 @@
           <div class="rcard-btns">
             ${!card.loading ? `<button class="cbtn" onclick="regenCard(${i})">↻</button>` : ""}
             ${card.b64 ? `<button class="cbtn hi" onclick="downloadCard(${i})">↓ PNG</button>` : ""}
+            ${card.b64 ? `<button class="cbtn hi" onclick="sendVarCardToBgRemover(${i})">✂ BG</button>` : ""}
           </div>
         </div>`;
       grid.appendChild(el);
@@ -699,6 +724,147 @@
     const a = document.createElement("a"); a.href = `data:image/png;base64,${b64}`; a.download = `${label.toLowerCase().replace(/\W+/g,"-")}.png`; a.click();
   }
   function downloadAll() { varCards.forEach((_,i) => { if(varCards[i].b64) downloadCard(i); }); }
+  function sendVarCardToBgRemover(i) { sendToBgRemover(varCards[i].b64, varCards[i].label); }
+
+  // ── Remove BG ──
+  function sendToBgRemover(b64, label, mimeType = "image/png") {
+    if (!b64) return;
+    bgQueue.push({ b64, label: label || `image-${bgQueue.length+1}`, mimeType });
+    updateBgQueueDisplay();
+    switchMode("removebg");
+  }
+
+  function updateBgQueueDisplay() {
+    const n = bgQueue.length;
+    document.getElementById("bg-queue-count").textContent = n;
+    document.getElementById("bg-clear-btn").style.display = n > 0 ? "inline-block" : "none";
+    const btn = document.getElementById("bg-btn");
+    btn.disabled = n === 0;
+    btn.textContent = n > 0 ? `Remove ${n} Background${n!==1?"s":""} →` : "Remove Backgrounds →";
+  }
+
+  function clearBgQueue() { bgQueue = []; updateBgQueueDisplay(); }
+
+  function onBgDragOver(e) { e.preventDefault(); document.getElementById("bg-upload-zone").classList.add("drag"); }
+  function onBgDragLeave() { document.getElementById("bg-upload-zone").classList.remove("drag"); }
+  function onBgDrop(e) {
+    e.preventDefault(); onBgDragLeave();
+    Array.from(e.dataTransfer.files).forEach(f => readBgFile(f));
+  }
+  function onBgFileChange(e) {
+    Array.from(e.target.files).forEach(f => readBgFile(f));
+    e.target.value = "";
+  }
+  function readBgFile(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      bgQueue.push({ b64: ev.target.result.split(",")[1], label: file.name.replace(/\.[^.]+$/, ""), mimeType: file.type });
+      updateBgQueueDisplay();
+    };
+    r.readAsDataURL(file);
+  }
+
+  async function loadBgLib() {
+    if (_bgRemoveFn) return _bgRemoveFn;
+    const mod = await import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs");
+    _bgRemoveFn = mod.removeBackground;
+    return _bgRemoveFn;
+  }
+
+  async function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result.split(",")[1]);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function handleRemoveBg() {
+    const errEl = document.getElementById("bg-err");
+    if (!bgQueue.length) { showErr(errEl, "Add at least one image first."); return; }
+    hideErr(errEl);
+
+    bgCards = bgQueue.map(item => ({ ...item, result: null, loading: true, error: null }));
+    bgQueue = [];
+    updateBgQueueDisplay();
+
+    document.getElementById("bg-empty").style.display = "none";
+    document.getElementById("bg-result").style.display = "block";
+    document.getElementById("bg-dl-all-btn").style.display = "none";
+    setBtn("bg-btn", true, "Loading AI model…");
+    renderBgGrid();
+    updateBgProgress();
+
+    let removeBackground;
+    try {
+      removeBackground = await loadBgLib();
+    } catch(e) {
+      showErr(errEl, "Failed to load library: " + e.message);
+      setBtn("bg-btn", false, "Remove Backgrounds →");
+      return;
+    }
+
+    setBtn("bg-btn", true, "Processing…");
+    const config = { publicPath: "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/" };
+
+    await Promise.allSettled(bgCards.map(async (card, i) => {
+      try {
+        const blob = await removeBackground(`data:${card.mimeType};base64,${card.b64}`, config);
+        const result = await blobToBase64(blob);
+        bgCards[i] = { ...bgCards[i], result, loading: false };
+      } catch(e) {
+        bgCards[i] = { ...bgCards[i], loading: false, error: e.message };
+      }
+      renderBgGrid();
+      updateBgProgress();
+    }));
+
+    setBtn("bg-btn", false, "Remove Backgrounds →");
+    updateBgQueueDisplay();
+  }
+
+  function renderBgGrid() {
+    const grid = document.getElementById("bg-grid");
+    grid.innerHTML = "";
+    bgCards.forEach((card, i) => {
+      const el = document.createElement("div");
+      el.className = "rcard";
+      el.innerHTML = `
+        <div class="rcard-img checker">
+          ${card.loading
+            ? `<div class="rcard-state"><div class="spin"></div><span>removing bg</span></div>`
+            : card.error
+              ? `<div class="rcard-state"><span style="font-size:20px;color:var(--danger)">!</span><span style="color:var(--danger)">${card.error.slice(0,28)}</span></div>`
+              : `<img src="data:image/png;base64,${card.result}" alt="${card.label}" />`}
+        </div>
+        <div class="rcard-foot">
+          <span class="rcard-label" title="${card.label}">${card.label}</span>
+          <div class="rcard-btns">
+            ${card.result ? `<button class="cbtn hi" onclick="downloadBgCard(${i})">↓ PNG</button>` : ""}
+          </div>
+        </div>`;
+      grid.appendChild(el);
+    });
+  }
+
+  function updateBgProgress() {
+    const done = bgCards.filter(c => c.result).length;
+    document.getElementById("bg-done-count").textContent = done;
+    document.getElementById("bg-total-count").textContent = bgCards.length;
+    document.getElementById("bg-prog-fill").style.width = `${(done/bgCards.length)*100}%`;
+    if (done > 0) document.getElementById("bg-dl-all-btn").style.display = "inline-block";
+  }
+
+  function downloadBgCard(i) {
+    const { label, result } = bgCards[i]; if (!result) return;
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${result}`;
+    a.download = `${label.toLowerCase().replace(/\W+/g,"-")}-nobg.png`;
+    a.click();
+  }
+  function downloadAllBg() { bgCards.forEach((_, i) => { if (bgCards[i].result) downloadBgCard(i); }); }
 
   function showErr(el, msg) { el.textContent = msg; el.classList.add("show"); }
   function hideErr(el) { el.classList.remove("show"); }
