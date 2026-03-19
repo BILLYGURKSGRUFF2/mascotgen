@@ -21,8 +21,8 @@ module.exports = async function handler(req, res) {
 
     const requestBody = {
       contents: payload.contents,
-      generation_config: {
-        response_modalities: ["TEXT", "IMAGE"]
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"]
       }
     };
 
