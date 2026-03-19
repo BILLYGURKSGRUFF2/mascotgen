@@ -950,16 +950,20 @@
 
   async function loadBgLib() {
     if (_bgRemoveFn) return _bgRemoveFn;
-    const mod = await import("https://esm.sh/@imgly/background-removal@1.7.0");
-    _bgRemoveFn = mod.removeBackground;
+    const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+    try {
+      _bgRemoveFn = await pipeline('image-segmentation', 'briaai/RMBG-1.4', { device: 'webgpu' });
+    } catch {
+      _bgRemoveFn = await pipeline('image-segmentation', 'briaai/RMBG-1.4', { device: 'wasm' });
+    }
     return _bgRemoveFn;
   }
 
   // Removes background: pre-pad → model → crop → BFS hole-fill → dilation
   async function removeBgEnhanced(src) {
-    const removeBg = await loadBgLib();
+    const segmentator = await loadBgLib();
 
-    // Stage 1a: load original, build padded image
+    // Stage 1a: load original, build padded canvas
     const origBlob = await fetch(src).then(r => r.blob());
     const origBitmap = await createImageBitmap(origBlob);
     const origW = origBitmap.width, origH = origBitmap.height;
@@ -973,25 +977,23 @@
     pCtx.fillRect(0, 0, PW, PH);
     pCtx.drawImage(origBitmap, PAD, PAD, origW, origH);
 
-    // Stage 1b: get mask on padded image
-    const maskBlob = await removeBg(padCanvas.toDataURL('image/png'), {
-      output: { type: 'mask', format: 'image/png' }
-    });
+    // Stage 1b: build RawImage from padded canvas and run RMBG-1.4
+    const { RawImage } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+    const padImgData = pCtx.getImageData(0, 0, PW, PH);
+    const rawImg = new RawImage(padImgData.data, PW, PH, 4);
+    const [{ mask: maskImg }] = await segmentator(rawImg);
+    // maskImg.data: Uint8ClampedArray, single-channel, length = PW*PH, white=foreground
 
-    // Stage 1c: crop mask back to original dimensions
-    const maskBitmap = await createImageBitmap(maskBlob);
-    const canvas = document.createElement('canvas');
-    canvas.width = origW; canvas.height = origH;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(maskBitmap, -PAD, -PAD);
-    const maskPx = ctx.getImageData(0, 0, origW, origH).data;
+    // Stage 1c: crop mask to original dimensions by direct index arithmetic
     const N = origW * origH;
     const alpha = new Uint8Array(N);
-    for (let i = 0; i < N; i++) alpha[i] = maskPx[i * 4];
+    for (let y = 0; y < origH; y++)
+      for (let x = 0; x < origW; x++)
+        alpha[y * origW + x] = maskImg.data[(y + PAD) * PW + (x + PAD)];
 
-    // Stage 2: BFS flood-fill — restore interior holes
-    // BFS threshold at 200: floods through clearly-bg AND semi-transparent halo pixels
-    const BFS_THRESH = 200;
+    // Stage 2: BFS flood-fill — restore interior holes + remove edge-connected background
+    // RMBG-1.4 produces near-binary masks so threshold is back to 128
+    const BFS_THRESH = 128;
     const visited = new Uint8Array(N);
     const queue = new Int32Array(N);
     let head = 0, tail = 0;
@@ -1039,7 +1041,9 @@
     }
 
     // Composite dilated mask onto original image
-    ctx.clearRect(0, 0, origW, origH);
+    const canvas = document.createElement('canvas');
+    canvas.width = origW; canvas.height = origH;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(origBitmap, 0, 0);
     const imgData = ctx.getImageData(0, 0, origW, origH);
     for (let i = 0; i < N; i++) imgData.data[i * 4 + 3] = dilated[i];
