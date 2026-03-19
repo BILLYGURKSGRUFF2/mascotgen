@@ -990,11 +990,13 @@
     for (let i = 0; i < N; i++) alpha[i] = maskPx[i * 4];
 
     // Stage 2: BFS flood-fill — restore interior holes
+    // BFS threshold at 200: floods through clearly-bg AND semi-transparent halo pixels
+    const BFS_THRESH = 200;
     const visited = new Uint8Array(N);
     const queue = new Int32Array(N);
     let head = 0, tail = 0;
     const seed = idx => {
-      if (!visited[idx] && alpha[idx] < 128) { visited[idx] = 1; queue[tail++] = idx; }
+      if (!visited[idx] && alpha[idx] < BFS_THRESH) { visited[idx] = 1; queue[tail++] = idx; }
     };
     for (let x = 0; x < origW; x++) { seed(x); seed((origH - 1) * origW + x); }
     for (let y = 0; y < origH; y++) { seed(y * origW); seed(y * origW + origW - 1); }
@@ -1006,7 +1008,11 @@
       if (y > 0)         seed(idx - origW);
       if (y < origH - 1) seed(idx + origW);
     }
-    for (let i = 0; i < N; i++) if (alpha[i] < 128 && !visited[i]) alpha[i] = 255;
+    // Edge-connected bg (including halos) → force 0; interior holes → force 255
+    for (let i = 0; i < N; i++) {
+      if (visited[i]) alpha[i] = 0;
+      else if (alpha[i] < BFS_THRESH) alpha[i] = 255;
+    }
 
     // Stage 3: dilation — recover edge erosion (radius 4)
     const RADIUS = 2;
