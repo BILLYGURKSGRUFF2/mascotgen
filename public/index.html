@@ -1009,12 +1009,14 @@
       if (y < origH - 1) seed(idx + origW);
     }
     // Edge-connected bg (including halos) → force 0; interior holes → force 255
+    // bgConfirmed tracks pixels BFS proved are background — dilation must not reclaim them
+    const bgConfirmed = new Uint8Array(N);
     for (let i = 0; i < N; i++) {
-      if (visited[i]) alpha[i] = 0;
+      if (visited[i]) { alpha[i] = 0; bgConfirmed[i] = 1; }
       else if (alpha[i] < BFS_THRESH) alpha[i] = 255;
     }
 
-    // Stage 3: dilation — recover edge erosion (radius 4)
+    // Stage 3: dilation — recover edge erosion (radius 2)
     const RADIUS = 2;
     const temp = new Uint8Array(N);
     for (let y = 0; y < origH; y++) {
@@ -1031,7 +1033,8 @@
         let mx = 0;
         const y0 = Math.max(0, y - RADIUS), y1 = Math.min(origH - 1, y + RADIUS);
         for (let ny = y0; ny <= y1; ny++) mx = Math.max(mx, temp[ny * origW + x]);
-        dilated[y * origW + x] = mx;
+        // BFS-confirmed background pixels cannot be reclaimed by dilation
+        dilated[y * origW + x] = bgConfirmed[y * origW + x] ? 0 : mx;
       }
     }
 
