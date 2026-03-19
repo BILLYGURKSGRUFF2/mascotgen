@@ -656,8 +656,7 @@
         if (autoRemoveBg) {
           document.getElementById("gen-bg-removing").style.display = "flex";
           try {
-            const removeBg = await loadBgLib();
-            const blob = await removeBg(`data:image/png;base64,${b64}`);
+            const blob = await removeBgEnhanced(`data:image/png;base64,${b64}`);
             const result = await blobToBase64(blob);
             genBase64 = result;
             document.getElementById("gen-img").src = `data:image/png;base64,${result}`;
@@ -939,8 +938,7 @@
     cards[i] = { ...cards[i], bgRemoving: true };
     renderFn();
     try {
-      const removeBg = await loadBgLib();
-      const blob = await removeBg(`data:image/png;base64,${cards[i].b64}`);
+      const blob = await removeBgEnhanced(`data:image/png;base64,${cards[i].b64}`);
       const result = await blobToBase64(blob);
       cards[i] = { ...cards[i], b64: result, bgRemoving: false };
     } catch(e) {
@@ -955,6 +953,62 @@
     const mod = await import("https://esm.sh/@imgly/background-removal@1.7.0");
     _bgRemoveFn = mod.removeBackground;
     return _bgRemoveFn;
+  }
+
+  // Removes background with mask dilation to recover edges the model clips into
+  async function removeBgEnhanced(src) {
+    const removeBg = await loadBgLib();
+
+    // Get the selection mask (white = keep, black = remove)
+    const maskBlob = await removeBg(src, { output: { type: 'mask', format: 'image/png' } });
+
+    // Load original + mask as bitmaps in parallel
+    const origBlob = await fetch(src).then(r => r.blob());
+    const [origBitmap, maskBitmap] = await Promise.all([
+      createImageBitmap(origBlob),
+      createImageBitmap(maskBlob)
+    ]);
+
+    const w = origBitmap.width, h = origBitmap.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    // Read mask values from R channel (grayscale: 255 = foreground, 0 = background)
+    ctx.drawImage(maskBitmap, 0, 0, w, h);
+    const maskPx = ctx.getImageData(0, 0, w, h).data;
+    const alpha = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) alpha[i] = maskPx[i * 4];
+
+    // Two-pass max filter (separable morphological dilation) — recovers eaten edges
+    const RADIUS = 6;
+    const temp = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let mx = 0;
+        const x0 = Math.max(0, x - RADIUS), x1 = Math.min(w - 1, x + RADIUS);
+        for (let nx = x0; nx <= x1; nx++) mx = Math.max(mx, alpha[y * w + nx]);
+        temp[y * w + x] = mx;
+      }
+    }
+    const dilated = new Uint8Array(w * h);
+    for (let x = 0; x < w; x++) {
+      for (let y = 0; y < h; y++) {
+        let mx = 0;
+        const y0 = Math.max(0, y - RADIUS), y1 = Math.min(h - 1, y + RADIUS);
+        for (let ny = y0; ny <= y1; ny++) mx = Math.max(mx, temp[ny * w + x]);
+        dilated[y * w + x] = mx;
+      }
+    }
+
+    // Apply dilated mask as alpha onto the original image
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(origBitmap, 0, 0);
+    const imgData = ctx.getImageData(0, 0, w, h);
+    for (let i = 0; i < w * h; i++) imgData.data[i * 4 + 3] = dilated[i];
+    ctx.putImageData(imgData, 0, 0);
+
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
   }
 
   async function blobToBase64(blob) {
@@ -982,9 +1036,8 @@
     renderBgGrid();
     updateBgProgress();
 
-    let removeBackground;
     try {
-      removeBackground = await loadBgLib();
+      await loadBgLib(); // pre-load model so progress shows before first card starts
     } catch(e) {
       showErr(errEl, "Failed to load library: " + e.message);
       setBtn("bg-btn", false, "Remove Backgrounds →");
@@ -995,7 +1048,7 @@
 
     await Promise.allSettled(bgCards.map(async (card, i) => {
       try {
-        const blob = await removeBackground(`data:${card.mimeType};base64,${card.b64}`);
+        const blob = await removeBgEnhanced(`data:${card.mimeType};base64,${card.b64}`);
         const result = await blobToBase64(blob);
         bgCards[i] = { ...bgCards[i], result, loading: false };
       } catch(e) {
